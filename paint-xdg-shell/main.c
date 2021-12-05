@@ -316,12 +316,12 @@ int main(int argc, char *argv[])
     // Signal that the surface is ready to be configured.
     wl_surface_commit(surface);
 
-    create_window();
-    paint_pixels();
-
     // Wait for the surface to be configured.
     wl_display_roundtrip(display);
     fprintf(stderr, "After roundtrip\n");
+
+    create_window();
+    paint_pixels();
 
     wl_surface_attach(surface, buffer, 0, 0);
     wl_surface_commit(surface);
