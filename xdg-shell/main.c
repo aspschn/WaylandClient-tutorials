@@ -285,12 +285,12 @@ int main(int argc, char *argv[])
 
     wl_surface_commit(surface);
 
+    // wait for the surface to be configured
+    wl_display_roundtrip(display);
+
     create_opaque_region();
     init_egl();
     create_window();
-
-    // wait for the surface to be configured
-    wl_display_roundtrip(display);
 
     wl_surface_commit(surface);
 
