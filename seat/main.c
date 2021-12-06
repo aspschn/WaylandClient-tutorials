@@ -23,6 +23,7 @@ struct zxdg_toplevel_v6 *xdg_toplevel;
 // Input devices
 struct wl_seat *seat = NULL;
 struct wl_pointer *pointer;
+struct wl_keyboard *keyboard;
 
 // Cursor
 struct wl_shm *shm;
@@ -35,6 +36,48 @@ EGLDisplay egl_display;
 EGLConfig egl_conf;
 EGLSurface egl_surface;
 EGLContext egl_context;
+
+//============
+// Keyboard
+//============
+static void keyboard_keymap_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t format, int fd, uint32_t size)
+{
+}
+
+static void keyboard_enter_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
+{
+    fprintf(stderr, "Keyboard gained focus\n");
+}
+
+static void keyboard_leave_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface)
+{
+    fprintf(stderr, "Keyboard lost focus\n");
+}
+
+static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+{
+    fprintf(stderr, "Key is %d, state is %d\n", key, state);
+}
+
+static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, uint32_t mods_depressed, uint32_t mods_latched,
+        uint32_t mods_locked, uint32_t group)
+{
+    fprintf(stderr, "Modifiers depressed %d, latched %d, locked %d, group %d\n",
+        mods_depressed, mods_latched, mods_locked, group);
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = keyboard_keymap_handler,
+    .enter = keyboard_enter_handler,
+    .leave = keyboard_leave_handler,
+    .key = keyboard_key_handler,
+    .modifiers = keyboard_modifiers_handler,
+};
 
 //==============
 // Seat
@@ -102,6 +145,12 @@ static void seat_handle_capabilities(void *data, struct wl_seat *seat,
     }
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
         printf("Display has a keyboard.\n");
+        keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
+    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD)) {
+        fprintf(stderr, "Destroy keyboard.\n");
+        wl_keyboard_destroy(keyboard);
+        keyboard = NULL;
     }
     if (caps & WL_SEAT_CAPABILITY_TOUCH) {
         printf("Display has a touch screen.\n");
