@@ -3,6 +3,7 @@
 #include <string.h>
 #include <wayland-client.h>
 #include <wayland-egl.h>
+#include <wayland-cursor.h>
 #include <EGL/egl.h>
 #include <GLES2/gl2.h>
 #include <linux/input.h>
@@ -23,6 +24,12 @@ struct zxdg_toplevel_v6 *xdg_toplevel;
 struct wl_seat *seat = NULL;
 struct wl_pointer *pointer;
 
+// Cursor
+struct wl_shm *shm;
+struct wl_cursor_theme *cursor_theme;
+struct wl_cursor *default_cursor;
+struct wl_surface *cursor_surface;
+
 // EGL
 EGLDisplay egl_display;
 EGLConfig egl_conf;
@@ -37,6 +44,17 @@ static void pointer_enter_handler(void *data, struct wl_pointer *pointer,
         wl_fixed_t sx, wl_fixed_t sy)
 {
     fprintf(stderr, "Pointer entered surface %p at %d %d\n", surface, sx, sy);
+
+    struct wl_buffer *buffer;
+    struct wl_cursor_image *image;
+
+    image = default_cursor->images[0];
+    buffer = wl_cursor_image_get_buffer(image);
+    wl_pointer_set_cursor(pointer, serial, cursor_surface,
+        image->hotspot_x, image->hotspot_y);
+    wl_surface_attach(cursor_surface, buffer, 0, 0);
+    wl_surface_damage(cursor_surface, 0, 0, image->width, image->height);
+    wl_surface_commit(cursor_surface);
 }
 
 static void pointer_leave_handler(void *data, struct wl_pointer *pointer,
@@ -278,6 +296,17 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
             1);
     } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
         xdg_shell = wl_registry_bind(registry, id, &zxdg_shell_v6_interface, 1);
+    } else if (strcmp(interface, "wl_shm") == 0) {
+        shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
+        cursor_theme = wl_cursor_theme_load(NULL, 32, shm);
+        if (cursor_theme == NULL) {
+            fprintf(stderr, "Can't get cursor theme.\n");
+        }
+        default_cursor = wl_cursor_theme_get_cursor(cursor_theme, "left_ptr");
+        if (default_cursor == NULL) {
+            fprintf(stderr, "Can't get default cursor.\n");
+            exit(1);
+        }
     }
 }
 
@@ -348,6 +377,8 @@ int main(int argc, char *argv[])
 
     init_egl();
     create_window();
+
+    cursor_surface = wl_compositor_create_surface(compositor);
 
     callback = wl_display_sync(display);
     wl_callback_add_listener(callback, &configure_callback_listener, NULL);
