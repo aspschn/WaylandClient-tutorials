@@ -148,7 +148,7 @@ static const struct wl_registry_listener registry_listener = {
 //================
 // Cairo / Pango
 //================
-static void draw_text(cairo_t *cr)
+static void draw_text(cairo_t *cr, double x, double y)
 {
     PangoLayout *layout;
     PangoFontDescription *desc;
@@ -170,7 +170,7 @@ static void draw_text(cairo_t *cr)
     pango_cairo_update_layout(cr, layout);
 
     // pango_layout_get_size(layout, &width, &height);
-    cairo_move_to(cr, 0, 0);
+    cairo_move_to(cr, x, y);
     pango_cairo_show_layout(cr, layout);
 
     cairo_restore(cr);
@@ -232,9 +232,10 @@ static void create_window()
             cairo_status_to_string(err));
     }
 
-    cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
     cairo_paint(cr);
-    draw_text(cr);
+    draw_text(cr, 10, 10);
+    draw_text(cr, 50, 50);
 
     if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
         fprintf(stderr, "Made current.\n");
