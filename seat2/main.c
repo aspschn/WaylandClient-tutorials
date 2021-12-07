@@ -24,9 +24,10 @@ struct wl_callback *frame_callback;
 struct zxdg_shell_v6 *xdg_shell;
 struct zxdg_surface_v6 *xdg_surface;
 struct zxdg_toplevel_v6 *xdg_toplevel;
+struct wl_buffer *buffer;
 
 struct wl_surface *surface2;
-struct wl_buffer *buffer;
+struct wl_callback *frame_callback2;
 
 void *shm_data;
 
@@ -186,15 +187,20 @@ static const struct wl_seat_listener seat_listener = {
 // EGL
 //============
 static void paint_pixels();
+static void paint_pixels2();
 static void redraw();
+static void redraw2();
 
 static const struct wl_callback_listener frame_listener = {
     redraw,
 };
 
+static const struct wl_callback_listener frame_listener2 = {
+    redraw2,
+};
+
 static void redraw(void *data, struct wl_callback *callback, uint32_t time)
 {
-    printf("Redrawing\n");
     wl_callback_destroy(frame_callback);
     wl_surface_damage(surface, 0, 0, 480, 360);
     paint_pixels();
@@ -205,13 +211,26 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t time)
     wl_surface_commit(surface);
 }
 
+static void redraw2(void *data, struct wl_callback *callback, uint32_t time)
+{
+    printf("Redrawing 2\n");
+    wl_callback_destroy(frame_callback2);
+    wl_surface_damage(surface2, 0, 0, 480, 360);
+    paint_pixels2();
+    frame_callback2 = wl_surface_frame(surface2);
+
+    wl_surface_attach(surface2, buffer, 0, 0);
+    wl_callback_add_listener(frame_callback2, &frame_listener2, NULL);
+    wl_surface_commit(surface2);
+}
+
 static void configure_callback(void *data, struct wl_callback *callback,
         uint32_t time)
 {
-    fprintf(stderr, "configure_callback()\n");
-    if (callback == NULL) {
-        redraw(data, NULL, time);
-    }
+//    fprintf(stderr, "configure_callback()\n");
+//    if (callback == NULL) {
+//        redraw(data, NULL, time);
+//    }
 }
 
 static struct wl_callback_listener configure_callback_listener = {
@@ -395,6 +414,15 @@ static void paint_pixels()
     }
 }
 
+static void paint_pixels2()
+{
+    uint32_t *pixel = shm_data;
+
+    for (int n = 0; n < 480 * 180; ++n) {
+        *pixel++ = 0xff0000;
+    }
+}
+
 static struct wl_buffer* create_buffer()
 {
     struct wl_shm_pool *pool;
@@ -521,18 +549,6 @@ int main(int argc, char *argv[])
     // Wait for the surface to be configured.
     wl_display_roundtrip(display);
 
-    callback = wl_display_sync(display);
-    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
-    frame_callback = wl_surface_frame(surface);
-    wl_callback_add_listener(frame_callback, &frame_listener, NULL);
-
-    init_egl();
-    create_window();
-    paint_pixels();
-    redraw(NULL, NULL, 0);
-
-    cursor_surface = wl_compositor_create_surface(compositor);
-
 
     surface2 = wl_compositor_create_surface(compositor);
     if (surface2 == NULL) {
@@ -540,6 +556,23 @@ int main(int argc, char *argv[])
     } else {
         fprintf(stderr, "surface2 created: %p\n", surface2);
     }
+
+    callback = wl_display_sync(display);
+    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
+    frame_callback = wl_surface_frame(surface);
+    wl_callback_add_listener(frame_callback, &frame_listener, NULL);
+
+    frame_callback2 = wl_surface_frame(surface2);
+    wl_callback_add_listener(frame_callback2, &frame_listener2, NULL);
+
+    init_egl();
+    create_window();
+    paint_pixels();
+//    redraw(NULL, NULL, 0);
+    redraw2(NULL, NULL, 0);
+
+    cursor_surface = wl_compositor_create_surface(compositor);
+
 
 
     wl_surface_commit(surface);
