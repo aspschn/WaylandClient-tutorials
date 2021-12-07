@@ -8,7 +8,8 @@
 
 #include "xdg-shell.h"
 
-#include <cairo.h>
+#include <cairo/cairo.h>
+#include <cairo/cairo-gl.h>
 #include <pango/pangocairo.h>
 
 #include "utils.h"
@@ -18,6 +19,7 @@ struct wl_compositor *compositor = NULL;
 struct wl_surface *surface;
 struct zxdg_shell_v6 *xdg_shell = NULL;
 struct zxdg_surface_v6 *xdg_surface;
+struct zxdg_toplevel_v6 *xdg_toplevel;
 struct wl_egl_window *egl_window;
 struct wl_region *region;
 
@@ -25,6 +27,47 @@ EGLDisplay egl_display;
 EGLConfig egl_conf;
 EGLSurface egl_surface;
 EGLContext egl_context;
+
+cairo_surface_t *cairo_surface;
+cairo_device_t *cairo_device;
+
+const char* egl_error_string(int err)
+{
+    switch (err) {
+    case EGL_SUCCESS:
+        return "EGL_SUCCESS";
+    case EGL_NOT_INITIALIZED:
+        return "EGL_NOT_INITIALIZED";
+    case EGL_BAD_ACCESS:
+        return "EGL_BAD_ACCESS";
+    case EGL_BAD_ALLOC:
+        return "EGL_BAD_ALLOC";
+    case EGL_BAD_ATTRIBUTE:
+        return "EGL_BAD_ATTRIBUTE";
+    case EGL_BAD_CONTEXT:
+        return "EGL_BAD_CONTEXT";
+    case EGL_BAD_CONFIG:
+        return "EGL_BAD_CONFIG";
+    case EGL_BAD_CURRENT_SURFACE:
+        return "EGL_BAD_CURRENT_SURFACE";
+    case EGL_BAD_DISPLAY:
+        return "EGL_BAD_DISPLAY";
+    case EGL_BAD_SURFACE:
+        return "EGL_BAD_SURFACE";
+    case EGL_BAD_MATCH:
+        return "EGL_BAD_MATCH";
+    case EGL_BAD_PARAMETER:
+        return "EGL_BAD_PARAMETER";
+    case EGL_BAD_NATIVE_PIXMAP:
+        return "EGL_BAD_NATIVE_PIXMAP";
+    case EGL_BAD_NATIVE_WINDOW:
+        return "EGL_BAD_NATIVE_WINDOW";
+    case EGL_CONTEXT_LOST:
+        return "EGL_CONTEXT_LOST";
+    default:
+        return "UNKNOWN ERROR!!";
+    }
+}
 
 //==============
 // Xdg
@@ -135,6 +178,14 @@ static void draw_text(cairo_t *cr)
     g_object_unref(layout);
 }
 
+static void init_cairo()
+{
+    cairo_device = cairo_egl_device_create(egl_display, egl_context);
+    if (cairo_device_status(cairo_device) != CAIRO_STATUS_SUCCESS) {
+        exit(1);
+    }
+}
+
 //==============
 // EGL
 //==============
@@ -170,17 +221,34 @@ static void create_window()
         fprintf(stderr, "Can't create EGL window surface.\n");
     }
 
+    // Cairo
+//    cairo_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 480, 360);
+    cairo_surface = cairo_gl_surface_create_for_egl(cairo_device, egl_surface,
+        480, 360);
+    cairo_t *cr = cairo_create(cairo_surface);
+    int err = cairo_status(cr);
+    if (err != CAIRO_STATUS_SUCCESS) {
+        fprintf(stderr, "Cairo error on create %s\n",
+            cairo_status_to_string(err));
+    }
+
+    cairo_set_source_rgb(cr, 1.0, 1.0, 0.0);
+    cairo_paint(cr);
+    draw_text(cr);
+
     if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
         fprintf(stderr, "Made current.\n");
     } else {
         fprintf(stderr, "Made current failed!\n");
     }
 
-    if (eglSwapBuffers(egl_display, egl_surface)) {
-        fprintf(stderr, "Swapped buffers.\n");
-    } else {
-        fprintf(stderr, "Swapped buffers failed!\n");
-    }
+    cairo_gl_surface_swapbuffers(cairo_surface);
+
+//    if (eglSwapBuffers(egl_display, egl_surface)) {
+//        fprintf(stderr, "Swapped buffers.\n");
+//    } else {
+//        fprintf(stderr, "Swapped buffers failed!\n");
+//    }
 }
 
 static void init_egl()
@@ -188,22 +256,16 @@ static void init_egl()
     EGLint major, minor, count ,n, size;
     EGLConfig *configs;
     EGLint config_attribs[] = {
-        EGL_SURFACE_TYPE,
-        EGL_WINDOW_BIT,
-        EGL_RED_SIZE,
-        8,
-        EGL_GREEN_SIZE,
-        8,
-        EGL_BLUE_SIZE,
-        8,
-        EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_ES2_BIT,
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
         EGL_NONE,
     };
 
     static const EGLint context_attribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION,
-        2,
+        EGL_CONTEXT_CLIENT_VERSION, 2,
         EGL_NONE,
     };
 
@@ -252,25 +314,41 @@ static void init_egl()
 
 int main(int argc, char *argv[])
 {
-    cairo_t *cr;
-    cairo_status_t status;
-    cairo_surface_t *surface;
+    display = wl_display_connect(NULL);
 
-    surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-        240, 80);
-    cr = cairo_create(surface);
+    struct wl_registry *registry = wl_display_get_registry(display);
+    wl_registry_add_listener(registry, &registry_listener, NULL);
 
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.0);
-    cairo_paint(cr);
-    draw_text(cr);
+    wl_display_dispatch(display);
+    wl_display_roundtrip(display);
 
-    cairo_destroy(cr);
-    status = cairo_surface_write_to_png(surface, "hello.png");
-    cairo_surface_destroy(surface);
+    surface = wl_compositor_create_surface(compositor);
 
-    if (status != CAIRO_STATUS_SUCCESS) {
-        return 1;
+    zxdg_shell_v6_add_listener(xdg_shell, &xdg_shell_listener, NULL);
+
+    xdg_surface = zxdg_shell_v6_get_xdg_surface(xdg_shell, surface);
+    zxdg_surface_v6_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+
+    xdg_toplevel = zxdg_surface_v6_get_toplevel(xdg_surface);
+    zxdg_toplevel_v6_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+
+    wl_surface_commit(surface);
+
+    // Wait for the surface to be configured.
+    wl_display_roundtrip(display);
+
+    create_opaque_region();
+    init_egl();
+    init_cairo();
+    create_window();
+
+    wl_surface_commit(surface);
+
+    while (wl_display_dispatch(display) != -1) {
+        ;
     }
+
+    wl_display_disconnect(display);
 
     return 0;
 }
