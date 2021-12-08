@@ -12,6 +12,7 @@ typedef struct bl_application {
     struct wl_compositor *compositor;
     struct wl_subcompositor *subcompositor;
     struct wl_registry *registry;
+    struct wl_shm *shm;
 
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;

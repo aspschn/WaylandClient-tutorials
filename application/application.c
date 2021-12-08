@@ -154,6 +154,21 @@ static const struct wl_seat_listener seat_listener = {
     seat_handle_capabilities,
 };
 
+//=============
+// Shm
+//=============
+static void shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
+{
+    // struct display *d = data;
+
+    // d->formats |= (1 << format);
+    fprintf(stderr, "Format %d\n", format);
+}
+
+struct wl_shm_listener shm_listener = {
+    .format = shm_format,
+};
+
 //==============
 // Global
 //==============
@@ -192,8 +207,10 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
             }
         }
     } else if (strcmp(interface, "wl_shm") == 0) {
+        application->shm = wl_registry_bind(registry,
+            id, &wl_shm_interface, 1);
+        wl_shm_add_listener(application->shm, &shm_listener, NULL);
         /*
-        shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
         cursor_theme = wl_cursor_theme_load(NULL, 32, shm);
         if (cursor_theme == NULL) {
             fprintf(stderr, "Can't get cursor theme.\n");
@@ -252,6 +269,7 @@ bl_application* bl_application_new()
     application->compositor = NULL;
     application->subcompositor = NULL;
     application->registry = NULL;
+    application->shm = NULL;
 
     application->seat = NULL;
     application->keyboard = NULL;

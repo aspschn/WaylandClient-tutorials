@@ -57,7 +57,7 @@ static const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
 // Drawing
 //=============
 static struct wl_buffer* create_buffer(int width, int height,
-        void *shm_data, struct wl_shm *shm)
+        void **shm_data, struct wl_shm *shm)
 {
     struct wl_shm_pool *pool;
     int stride = width * 4;
@@ -72,8 +72,10 @@ static struct wl_buffer* create_buffer(int width, int height,
         exit(1);
     }
 
-    shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (shm_data == MAP_FAILED) {
+    fprintf(stderr, "Before mmap. shm_data: %p\n", *shm_data);
+    *shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    fprintf(stderr, "After mmap. shm_data: %p\n", *shm_data);
+    if (*shm_data == MAP_FAILED) {
         close(fd);
         exit(1);
     }
@@ -86,9 +88,10 @@ static struct wl_buffer* create_buffer(int width, int height,
     return buff;
 }
 
-static void paint_pixels(int size, void *shm_data)
+static void paint_pixels(int size, void **shm_data)
 {
-    uint32_t *pixel = shm_data;
+    fprintf(stderr, "paint_pixels. shm_data: %p\n", *shm_data);
+    uint32_t *pixel = *shm_data;
 
     for (int n = 0; n < size; ++n) {
         *pixel++ = 0xff0000;
@@ -98,7 +101,8 @@ static void paint_pixels(int size, void *shm_data)
 static void create_window_surface(bl_window *window,
         struct wl_buffer *buffer, void *shm_data, struct wl_shm *shm)
 {
-    buffer = create_buffer(window->width, window->height, shm_data, shm);
+    buffer = create_buffer(window->width, window->height, &shm_data, shm);
+    fprintf(stderr, "create_window_surface. shm_data: %p\n", shm_data);
 
     wl_surface_attach(window->surface, buffer, 0, 0);
     wl_surface_commit(window->surface);
@@ -145,8 +149,8 @@ void bl_window_show(bl_window *window)
     zxdg_toplevel_v6_add_listener(window->xdg_toplevel,
         &(window->xdg_toplevel_listener), NULL);
 
-    void *shm_data;
-    struct wl_shm *shm;
-    struct wl_buffer *buffer = create_buffer(window->width, window->height,
-        shm_data, shm);
+    void *shm_data = NULL;
+    struct wl_buffer *buffer = NULL;
+    create_window_surface(window, buffer, shm_data, bl_app->shm);
+    paint_pixels(window->width *window->height, &shm_data);
 }
