@@ -323,8 +323,8 @@ int main(int argc, char *argv[])
     create_window();
     paint_pixels();
 
-    wl_surface_attach(surface, buffer, 0, 0);
-    wl_surface_commit(surface);
+//    wl_surface_attach(surface, buffer, 0, 0);
+//    wl_surface_commit(surface);
 
     fprintf(stderr, "Before loop\n");
     while (wl_display_dispatch(display) != -1) {

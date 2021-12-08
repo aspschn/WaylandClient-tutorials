@@ -72,7 +72,8 @@ static struct wl_buffer* create_buffer(int width, int height,
         exit(1);
     }
 
-    fprintf(stderr, "Before mmap. shm_data: %p\n", *shm_data);
+    fprintf(stderr, "Before mmap.");
+    fprintf(stderr, " shm_data: %p\n", *shm_data);
     *shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     fprintf(stderr, "After mmap. shm_data: %p\n", *shm_data);
     if (*shm_data == MAP_FAILED) {
@@ -99,10 +100,10 @@ static void paint_pixels(int size, void **shm_data)
 }
 
 static void create_window_surface(bl_window *window,
-        struct wl_buffer *buffer, void *shm_data, struct wl_shm *shm)
+        struct wl_buffer *buffer, void **shm_data, struct wl_shm *shm)
 {
-    buffer = create_buffer(window->width, window->height, &shm_data, shm);
-    fprintf(stderr, "create_window_surface. shm_data: %p\n", shm_data);
+    buffer = create_buffer(window->width, window->height, shm_data, shm);
+    fprintf(stderr, "create_window_surface. shm_data: %p\n", *shm_data);
 
     wl_surface_attach(window->surface, buffer, 0, 0);
     wl_surface_commit(window->surface);
@@ -149,8 +150,11 @@ void bl_window_show(bl_window *window)
     zxdg_toplevel_v6_add_listener(window->xdg_toplevel,
         &(window->xdg_toplevel_listener), NULL);
 
+    // Signal that the surface is ready to be configured.
+    wl_surface_commit(window->surface);
+
     void *shm_data = NULL;
     struct wl_buffer *buffer = NULL;
-    create_window_surface(window, buffer, shm_data, bl_app->shm);
+    create_window_surface(window, buffer, &shm_data, bl_app->shm);
     paint_pixels(window->width *window->height, &shm_data);
 }
