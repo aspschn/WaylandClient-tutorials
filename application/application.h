@@ -13,6 +13,10 @@ typedef struct bl_application {
     struct wl_subcompositor *subcompositor;
     struct wl_registry *registry;
 
+    struct wl_seat *seat;
+    struct wl_keyboard *keyboard;
+    struct wl_pointer *pointer;
+
     bl_window **toplevel_windows;
     uint32_t toplevel_windows_length;
 } bl_application;

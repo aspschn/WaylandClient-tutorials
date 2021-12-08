@@ -70,6 +70,9 @@ bl_window* bl_window_new()
     }
     window->surface = wl_compositor_create_surface(bl_app->compositor);
 
+    window->width = 480;
+    window->height = 360;
+
     return window;
 }
 

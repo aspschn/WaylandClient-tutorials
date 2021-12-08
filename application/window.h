@@ -16,6 +16,9 @@ typedef struct bl_window {
     struct zxdg_shell_v6_listener xdg_shell_listener;
     struct zxdg_surface_v6_listener xdg_surface_listener;
     struct zxdg_toplevel_v6_listener xdg_toplevel_listener;
+
+    int width;
+    int height;
 } bl_window;
 
 bl_window* bl_window_new();
