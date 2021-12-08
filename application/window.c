@@ -144,4 +144,9 @@ void bl_window_show(bl_window *window)
     window->xdg_toplevel = zxdg_surface_v6_get_toplevel(window->xdg_surface);
     zxdg_toplevel_v6_add_listener(window->xdg_toplevel,
         &(window->xdg_toplevel_listener), NULL);
+
+    void *shm_data;
+    struct wl_shm *shm;
+    struct wl_buffer *buffer = create_buffer(window->width, window->height,
+        shm_data, shm);
 }
