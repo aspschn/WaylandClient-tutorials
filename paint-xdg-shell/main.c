@@ -277,7 +277,7 @@ int main(int argc, char *argv[])
     wl_registry_add_listener(registry, &registry_listener, NULL);
 
     wl_display_dispatch(display);
-    wl_display_roundtrip(display);
+//    wl_display_roundtrip(display);
 
     // Check compositor.
     fprintf(stderr, " - Checking compositor...\n");
@@ -301,13 +301,8 @@ int main(int argc, char *argv[])
     zxdg_shell_v6_add_listener(xdg_shell, &xdg_shell_listener, NULL);
 
     // Check shell surface.
-    fprintf(stderr, " - Checking Xdg surface...\n");
     xdg_surface =
         zxdg_shell_v6_get_xdg_surface(xdg_shell, surface);
-    if (xdg_surface == NULL) {
-        fprintf(stderr, "Can't create Xdg surface.\n");
-        exit(1);
-    }
     zxdg_surface_v6_add_listener(xdg_surface, &xdg_surface_listener, NULL);
 
     xdg_toplevel = zxdg_surface_v6_get_toplevel(xdg_surface);
@@ -318,7 +313,6 @@ int main(int argc, char *argv[])
 
     // Wait for the surface to be configured.
     wl_display_roundtrip(display);
-    fprintf(stderr, "After roundtrip\n");
 
     create_window();
     paint_pixels();
@@ -326,7 +320,6 @@ int main(int argc, char *argv[])
 //    wl_surface_attach(surface, buffer, 0, 0);
 //    wl_surface_commit(surface);
 
-    fprintf(stderr, "Before loop\n");
     while (wl_display_dispatch(display) != -1) {
         ;
     }

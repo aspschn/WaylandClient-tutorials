@@ -27,6 +27,7 @@ static const struct zxdg_shell_v6_listener xdg_shell_listener = {
 static void xdg_surface_configure_handler(void *data,
         struct zxdg_surface_v6 *xdg_surface, uint32_t serial)
 {
+    fprintf(stderr, "xdg_surface_configure_handler.\n");
     zxdg_surface_v6_ack_configure(xdg_surface, serial);
 }
 
@@ -152,6 +153,8 @@ void bl_window_show(bl_window *window)
 
     // Signal that the surface is ready to be configured.
     wl_surface_commit(window->surface);
+
+    wl_display_roundtrip(bl_app->display);
 
     void *shm_data = NULL;
     struct wl_buffer *buffer = NULL;
