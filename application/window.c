@@ -154,6 +154,7 @@ void bl_window_show(bl_window *window)
     // Signal that the surface is ready to be configured.
     wl_surface_commit(window->surface);
 
+    // Wait for the surface to be configured.
     wl_display_roundtrip(bl_app->display);
 
     void *shm_data = NULL;

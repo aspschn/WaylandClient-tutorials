@@ -320,9 +320,6 @@ int bl_application_exec(bl_application *application)
         return 1;
     }
 
-    // Wait for the surface to be configured.
-    wl_display_roundtrip(application->display);
-
     while (wl_display_dispatch(application->display) != -1) {
         ;
     }
