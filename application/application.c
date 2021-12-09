@@ -254,7 +254,8 @@ bl_application *bl_app = NULL;
 bl_application* bl_application_new()
 {
     if (bl_app != NULL) {
-        fprintf(stderr, "Blusher app already created.\n");
+        fprintf(stderr,
+            "bl::application::new() - Blusher app already created.\n");
         return NULL;
     }
     bl_application *application = malloc(sizeof(bl_application));

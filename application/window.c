@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "application.h"
+#include "surface.h"
 #include "utils.h"
 
 //==============
@@ -90,13 +91,13 @@ static struct wl_buffer* create_buffer(int width, int height,
     return buff;
 }
 
-static void paint_pixels(int size, void **shm_data)
+static void paint_pixels(int size, uint32_t color, void **shm_data)
 {
     fprintf(stderr, "paint_pixels. shm_data: %p\n", *shm_data);
     uint32_t *pixel = *shm_data;
 
     for (int n = 0; n < size; ++n) {
-        *pixel++ = 0xff0000;
+        *pixel++ = color;
     }
 }
 
@@ -108,6 +109,19 @@ static void create_window_surface(bl_window *window,
 
     wl_surface_attach(window->surface, buffer, 0, 0);
     wl_surface_commit(window->surface);
+
+    wl_buffer_destroy(buffer);
+}
+
+static void create_title_bar_surface(bl_surface *title_bar,
+        struct wl_buffer *buffer, void **shm_data, struct wl_shm *shm)
+{
+    buffer = create_buffer(title_bar->width, title_bar->height, shm_data, shm);
+
+    wl_surface_attach(title_bar->surface, buffer, 0, 0);
+    wl_surface_commit(title_bar->surface);
+
+    wl_buffer_destroy(buffer);
 }
 
 //=============
@@ -134,8 +148,38 @@ bl_window* bl_window_new()
     window->width = 480;
     window->height = 360;
 
+    window->title_bar = NULL;
+
     return window;
 }
+
+// TEST!!
+static void frame_done(void *data, struct wl_callback *callback, uint32_t time);
+
+static const struct wl_callback_listener listener = {
+    .done = frame_done,
+};
+
+static void frame_done(void *data, struct wl_callback *callback, uint32_t time)
+{
+    bl_surface *title_bar = (bl_surface*)data;
+    wl_callback_destroy(callback);
+    wl_surface_damage(title_bar->surface, 0, 0, 100, 100);
+    fprintf(stderr, "DRAW!!\n");
+
+    void *shm_data = NULL;
+    struct wl_buffer *title_bar_buffer = NULL;
+    create_title_bar_surface(title_bar,
+        title_bar_buffer, &shm_data, bl_app->shm);
+    paint_pixels(title_bar->width * title_bar->height, 0x00ff00, &shm_data);
+
+    title_bar->frame_callback = wl_surface_frame(title_bar->surface);
+    wl_surface_attach(title_bar->surface, title_bar_buffer, 0, 0);
+    wl_callback_add_listener(title_bar->frame_callback,
+        &listener, (void*)(title_bar));
+    wl_surface_commit(title_bar->surface);
+}
+// TEST END!!
 
 void bl_window_show(bl_window *window)
 {
@@ -157,8 +201,31 @@ void bl_window_show(bl_window *window)
     // Wait for the surface to be configured.
     wl_display_roundtrip(bl_app->display);
 
+    // Draw window surface.
     void *shm_data = NULL;
     struct wl_buffer *buffer = NULL;
     create_window_surface(window, buffer, &shm_data, bl_app->shm);
-    paint_pixels(window->width *window->height, &shm_data);
+    paint_pixels(window->width * window->height, 0xff0000, &shm_data);
+
+    // Draw title bar.
+    struct wl_buffer *title_bar_buffer = NULL;
+    window->title_bar = bl_surface_new();
+    bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
+    window->title_bar->surface =
+        wl_compositor_create_surface(bl_app->compositor);
+    wl_surface_commit(window->title_bar->surface);
+    window->title_bar->subsurface =
+        wl_subcompositor_get_subsurface(bl_app->subcompositor,
+            window->title_bar->surface, window->surface);
+    create_title_bar_surface(window->title_bar,
+        title_bar_buffer, &shm_data, bl_app->shm);
+    paint_pixels(window->width * 30, 0x00ff00, &shm_data);
+
+    // TEST!
+    window->title_bar->frame_callback =
+        wl_surface_frame(window->title_bar->surface);
+    wl_callback_add_listener(window->title_bar->frame_callback,
+        &listener, (void*)(window->title_bar));
+    wl_surface_commit(window->title_bar->surface);
+    wl_surface_commit(window->surface);
 }

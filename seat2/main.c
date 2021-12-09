@@ -97,6 +97,8 @@ static const struct wl_keyboard_listener keyboard_listener = {
 //==============
 // Pointer
 //==============
+static void paint_pixels2();
+
 static void pointer_enter_handler(void *data, struct wl_pointer *pointer,
         uint32_t serial, struct wl_surface *surface,
         wl_fixed_t sx, wl_fixed_t sy)
@@ -208,18 +210,20 @@ static const struct wl_callback_listener frame_listener2 = {
 
 static void redraw(void *data, struct wl_callback *callback, uint32_t time)
 {
+    fprintf(stderr, "Redraw!\n");
     wl_callback_destroy(frame_callback);
     wl_surface_damage(surface, 0, 0, 480, 360);
-    paint_pixels();
+//    paint_pixels();
     frame_callback = wl_surface_frame(surface);
 
-    wl_surface_attach(surface, buffer, 0, 0);
+//    wl_surface_attach(surface, buffer, 0, 0);
     wl_callback_add_listener(frame_callback, &frame_listener, NULL);
     wl_surface_commit(surface);
 }
 
 static void redraw2(void *data, struct wl_callback *callback, uint32_t time)
 {
+    fprintf(stderr, "Redraw2!\n");
     wl_callback_destroy(frame_callback2);
     wl_surface_damage(surface2, 0, 0, 480, 360);
     paint_pixels2();
@@ -331,7 +335,7 @@ static void paint_pixels2()
 {
     uint32_t *pixel = shm_data;
 
-    for (int n = 0; n < 480 * 180; ++n) {
+    for (int n = 0; n < 200 * 200; ++n) {
         *pixel++ = 0xff0000;
     }
 }
@@ -481,20 +485,25 @@ int main(int argc, char *argv[])
     } else {
         fprintf(stderr, "surface2 created: %p\n", surface2);
     }
+    create_surface2();
+    paint_pixels2();
+    wl_surface_attach(surface2, buffer, 0, 0);
     wl_surface_commit(surface2);
 
     // Subsurface
     subsurface = wl_subcompositor_get_subsurface(subcompositor,
         surface2, surface);
 
-    callback = wl_display_sync(display);
-    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
-    frame_callback = wl_surface_frame(surface);
-    wl_callback_add_listener(frame_callback, &frame_listener, NULL);
+//    callback = wl_display_sync(display);
+//    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
+//    frame_callback = wl_surface_frame(surface);
+//    wl_callback_add_listener(frame_callback, &frame_listener, NULL);
 
     frame_callback2 = wl_surface_frame(surface2);
     wl_callback_add_listener(frame_callback2, &frame_listener2, NULL);
 
+    wl_surface_attach(surface2, buffer, 0, 0);
+    wl_surface_commit(surface2);
 
     region2 = wl_compositor_create_region(compositor);
     wl_region_add(region2, 0, 0, 100, 50);
