@@ -34,7 +34,7 @@ pub extern "C" fn bl_ptr_btree_remove(btree: *mut bl_ptr_btree, val: u64) -> boo
 #[no_mangle]
 pub extern "C" fn bl_ptr_btree_free(btree: *mut bl_ptr_btree) {
     unsafe {
-        let ptr = Box::into_raw((*btree).btree);
+        let ptr = Box::into_raw((*btree).btree.to_owned());
         Box::from_raw(ptr);
     }
 }

@@ -7,7 +7,9 @@ XDG_SHELL_SOURCE=xdg-shell.c
 XDG_SHELL_HEADER_PATH=$(WAYLAND_PROTOCOLS_UNSTABLE_TARGET_DIR)/$(XDG_SHELL_HEADER)
 XDG_SHELL_SOURCE_PATH=$(WAYLAND_PROTOCOLS_UNSTABLE_TARGET_DIR)/$(XDG_SHELL_SOURCE)
 
-C_INCLUDES := -I./$(WAYLAND_PROTOCOLS_TARGET_DIR)
+BLUSHER_COLLECTIONS_LIB=blusher-collections/target/release/libblusher-collections.so
+
+C_INCLUDES := -I./$(WAYLAND_PROTOCOLS_TARGET_DIR) -I./blusher-collections/include
 
 SRC = application.c \
 	window.c \
@@ -15,7 +17,7 @@ SRC = application.c \
 	utils.c \
 	main.c
 
-default: $(XDG_SHELL_HEADER_PATH) $(XDG_SHELL_SOURCE_PATH)
+default: $(XDG_SHELL_HEADER_PATH) $(XDG_SHELL_SOURCE_PATH) $(BLUSHER_COLLECTIONS_LIB)
 	gcc $(C_INCLUDES) -lwayland-client -lwayland-egl -lwayland-cursor -lEGL -lGLESv2 $(SRC) $(XDG_SHELL_SOURCE_PATH)
 
 $(XDG_SHELL_HEADER_PATH):
@@ -24,3 +26,8 @@ $(XDG_SHELL_HEADER_PATH):
 $(XDG_SHELL_SOURCE_PATH):
 	wayland-scanner public-code $(WAYLAND_PROTOCOLS_UNSTABLE_DIR)/xdg-shell/xdg-shell-unstable-v6.xml $(WAYLAND_PROTOCOLS_UNSTABLE_TARGET_DIR)/$(XDG_SHELL_SOURCE)
 
+blusher-collections/target/release/libblusher-collections.so:
+	cd blusher-collections ; cargo build --release
+
+run:
+	LD_LIBRARY_PATH=blusher-collections/target/release ./a.out

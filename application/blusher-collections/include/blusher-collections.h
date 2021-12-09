@@ -1,6 +1,7 @@
 #ifndef _BLUSHER_COLLECTIONS_H
 #define _BLUSHER_COLLECTIONS_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct bl_ptr_btree {
