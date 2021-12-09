@@ -10,7 +10,8 @@
 typedef struct bl_surface bl_surface;
 
 typedef struct bl_window {
-    struct wl_surface *surface;
+    bl_surface *surface;
+
     struct zxdg_shell_v6 *xdg_shell;
     struct zxdg_surface_v6 *xdg_surface;
     struct zxdg_toplevel_v6 *xdg_toplevel;
