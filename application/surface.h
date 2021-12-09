@@ -3,6 +3,8 @@
 
 #include <wayland-client.h>
 
+typedef struct bl_pointer_event bl_pointer_event;
+
 typedef struct bl_surface {
     struct wl_surface *surface;
     struct wl_subsurface *subsurface;
@@ -12,6 +14,8 @@ typedef struct bl_surface {
     double y;
     double width;
     double height;
+
+    void (*pointer_press_event)(bl_pointer_event*);
 } bl_surface;
 
 bl_surface* bl_surface_new();

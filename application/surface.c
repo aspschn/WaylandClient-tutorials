@@ -17,6 +17,8 @@ bl_surface* bl_surface_new()
     surface->width = 0;
     surface->height = 0;
 
+    surface->pointer_press_event = NULL;
+
     return surface;
 }
 
