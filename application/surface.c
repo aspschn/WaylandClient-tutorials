@@ -2,11 +2,13 @@
 
 #include <stdlib.h>
 
+#include "application.h"
+
 bl_surface* bl_surface_new()
 {
     bl_surface *surface = malloc(sizeof(bl_surface));
 
-    surface->surface = NULL;
+    surface->surface = wl_compositor_create_surface(bl_app->compositor);
     surface->subsurface = NULL;
     surface->frame_callback = NULL;
 

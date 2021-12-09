@@ -147,7 +147,6 @@ bl_window* bl_window_new()
         fprintf(stderr, "bl_app is NULL.\n");
     }
     window->surface = bl_surface_new();
-    window->surface->surface = wl_compositor_create_surface(bl_app->compositor);
 
     window->width = 480;
     window->height = 360;
@@ -242,8 +241,6 @@ void bl_window_show(bl_window *window)
     struct wl_buffer *title_bar_buffer = NULL;
     window->title_bar = bl_surface_new();
     bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
-    window->title_bar->surface =
-        wl_compositor_create_surface(bl_app->compositor);
     wl_surface_commit(window->title_bar->surface);
     window->title_bar->subsurface =
         wl_subcompositor_get_subsurface(bl_app->subcompositor,
