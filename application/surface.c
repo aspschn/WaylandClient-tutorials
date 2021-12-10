@@ -62,9 +62,11 @@ static void paint_pixels(bl_surface *surface)
 //============
 // Surface
 //============
-bl_surface* bl_surface_new()
+bl_surface* bl_surface_new(bl_surface *parent)
 {
     bl_surface *surface = malloc(sizeof(bl_surface));
+
+    surface->parent = parent;
 
     surface->surface = wl_compositor_create_surface(bl_app->compositor);
     surface->subsurface = NULL;
@@ -81,6 +83,15 @@ bl_surface* bl_surface_new()
     surface->color = bl_color_from_rgb(255, 255, 255);
 
     surface->pointer_press_event = NULL;
+
+    // Create wl_subsurface if has parent.
+    if (surface->parent != NULL) {
+        surface->subsurface = wl_subcompositor_get_subsurface(
+            bl_app->subcompositor,
+            surface->surface,
+            surface->parent->surface
+        );
+    }
 
     // Add surface to BTree map.
     bl_ptr_btree_insert(bl_app->surface_map,
@@ -128,6 +139,8 @@ void bl_surface_free(bl_surface *surface)
     if (surface->buffer != NULL) {
         wl_buffer_destroy(surface->buffer);
     }
+
+    bl_ptr_btree_remove(bl_app->surface_map, (uint64_t)(surface->surface));
 
     free(surface);
 }
