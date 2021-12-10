@@ -16,6 +16,7 @@
 
 #include "application.h"
 #include "window.h"
+#include "surface.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -415,6 +416,10 @@ int main(int argc, char *argv[])
     bl_application_add_window(app, window);
 
     bl_window_show(window);
+
+    bl_surface *rect = bl_surface_new(window->surface);
+    bl_surface_set_geometry(rect, 10, 10, 100, 100);
+    bl_surface_show(rect);
 
     return bl_application_exec(app);
 }
