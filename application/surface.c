@@ -3,9 +3,55 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <sys/mman.h>
+#include <unistd.h>
+
 #include "application.h"
+#include "utils.h"
 #include <blusher-collections.h>
 
+//=============
+// Drawing
+//=============
+static struct wl_buffer* create_buffer(bl_surface *surface,
+        int width, int height, struct wl_shm *shm)
+{
+    fprintf(stderr, "create_buffer: %dx%d\n", width, height);
+    struct wl_shm_pool *pool;
+    int stride = width * 4;
+    int size = stride * height;
+    int fd;
+    struct wl_buffer *buff;
+
+    fd = os_create_anonymous_file(size);
+    if (fd < 0) {
+        fprintf(stderr, "Creating a buffer file for %d B failed: %m\n",
+            size);
+        exit(1);
+    }
+
+    fprintf(stderr, "Before mmap.");
+    fprintf(stderr, " shm_data: %p\n", surface->shm_data);
+    surface->shm_data =
+        mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    fprintf(stderr, "After mmap. shm_data: %p\n", surface->shm_data);
+    if (surface->shm_data == MAP_FAILED) {
+        surface->shm_data = NULL;
+        close(fd);
+        return NULL;
+    }
+
+    pool = wl_shm_create_pool(shm, fd, size);
+    buff = wl_shm_pool_create_buffer(pool, 0, width, height, stride,
+        WL_SHM_FORMAT_ARGB8888);
+
+    wl_shm_pool_destroy(pool);
+    return buff;
+}
+
+//============
+// Surface
+//============
 bl_surface* bl_surface_new()
 {
     bl_surface *surface = malloc(sizeof(bl_surface));
@@ -13,6 +59,10 @@ bl_surface* bl_surface_new()
     surface->surface = wl_compositor_create_surface(bl_app->compositor);
     surface->subsurface = NULL;
     surface->frame_callback = NULL;
+    surface->buffer = NULL;
+
+    surface->shm_data = NULL;
+    surface->shm_data_size = 0;
 
     surface->x = 0;
     surface->y = 0;
@@ -35,4 +85,21 @@ void bl_surface_set_geometry(bl_surface *surface,
     surface->y = y;
     surface->width = width;
     surface->height = height;
+
+    if (surface->shm_data != NULL) {
+        munmap(surface->shm_data, surface->shm_data_size);
+    }
+    if (surface->buffer != NULL) {
+        wl_buffer_destroy(surface->buffer);
+    }
+    surface->buffer = create_buffer(surface, width, height, bl_app->shm);
+}
+
+void bl_surface_free(bl_surface *surface)
+{
+    if (surface->buffer != NULL) {
+        wl_buffer_destroy(surface->buffer);
+    }
+
+    free(surface);
 }
