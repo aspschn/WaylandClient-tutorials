@@ -130,11 +130,14 @@ void bl_surface_show(bl_surface *surface)
     }
 
     paint_pixels(surface);
-    wl_surface_attach(surface->surface, surface->buffer, 0, 0);
+    wl_surface_attach(surface->surface, surface->buffer,
+        0, 0);
     wl_surface_commit(surface->surface);
 
     if (surface->parent != NULL) {
         wl_surface_commit(surface->parent->surface);
+        wl_subsurface_set_position(surface->subsurface,
+            surface->x, surface->y);
     }
 }
 
