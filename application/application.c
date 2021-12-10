@@ -99,7 +99,6 @@ static void pointer_motion_handler(void *data, struct wl_pointer *pointer,
 static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
         uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
-    fprintf(stderr, "Pointer button\n");
     bl_surface *found = (bl_surface*)bl_ptr_btree_get(bl_app->surface_map,
         (uint64_t)(bl_app->pointer_surface));
     if (found != 0) {

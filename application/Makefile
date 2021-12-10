@@ -17,6 +17,7 @@ SRC = application.c \
 	window.c \
 	surface.c \
 	utils.c \
+	color.c \
 	pointer-event.c \
 	main.c
 

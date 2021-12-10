@@ -404,12 +404,6 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
     }
 }
 
-static void global_registry_remover(void *data, struct wl_registry *registry,
-        uint32_t id)
-{
-    printf("Got a registry losing event for <%d>\n", id);
-}
-
 //===========
 // Main
 //===========

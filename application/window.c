@@ -208,14 +208,13 @@ void bl_window_show(bl_window *window)
     // Draw title bar.
     window->title_bar = bl_surface_new();
     bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
-    wl_surface_commit(window->title_bar->surface);
+    const bl_color title_bar_color = bl_color_from_rgb(0, 255, 0);
+    bl_surface_set_color(window->title_bar, title_bar_color);
     window->title_bar->subsurface =
         wl_subcompositor_get_subsurface(bl_app->subcompositor,
             window->title_bar->surface, window->surface->surface);
-    create_title_bar_surface(window->title_bar);
-    paint_pixels(window->width * 30, 0xff00ff00,
-        &(window->title_bar->shm_data));
     window->title_bar->pointer_press_event = title_bar_pointer_press_handler;
+    bl_surface_show(window->title_bar);
 
     // TEST!
 //    window->surface->frame_callback =

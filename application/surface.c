@@ -49,6 +49,16 @@ static struct wl_buffer* create_buffer(bl_surface *surface,
     return buff;
 }
 
+static void paint_pixels(bl_surface *surface)
+{
+    uint32_t *pixel = surface->shm_data;
+
+    const uint32_t color = bl_color_to_argb(surface->color);
+    for (int n = 0; n < (surface->width * surface->height); ++n) {
+        *pixel++ = color;
+    }
+}
+
 //============
 // Surface
 //============
@@ -68,6 +78,7 @@ bl_surface* bl_surface_new()
     surface->y = 0;
     surface->width = 0;
     surface->height = 0;
+    surface->color = bl_color_from_rgb(255, 255, 255);
 
     surface->pointer_press_event = NULL;
 
@@ -93,6 +104,23 @@ void bl_surface_set_geometry(bl_surface *surface,
         wl_buffer_destroy(surface->buffer);
     }
     surface->buffer = create_buffer(surface, width, height, bl_app->shm);
+}
+
+void bl_surface_set_color(bl_surface *surface, const bl_color color)
+{
+    surface->color = color;
+}
+
+void bl_surface_show(bl_surface *surface)
+{
+    // Do nothing if size is zero.
+    if (surface->width == 0 || surface->height == 0) {
+        return;
+    }
+
+    paint_pixels(surface);
+    wl_surface_attach(surface->surface, surface->buffer, 0, 0);
+    wl_surface_commit(surface->surface);
 }
 
 void bl_surface_free(bl_surface *surface)
