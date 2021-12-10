@@ -12,4 +12,4 @@ HEADERS += utils.h \
     pointer-event.h \
     blusher-collections/include/blusher-collections.h
 
-INCLUDEPATH += wayland-protocols
+INCLUDEPATH += wayland-protocols blusher-collections/include

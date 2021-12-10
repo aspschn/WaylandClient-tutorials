@@ -6,6 +6,7 @@
 #include <wayland-client.h>
 
 typedef struct bl_window bl_window;
+typedef struct bl_ptr_btree bl_ptr_btree;
 
 typedef struct bl_application {
     struct wl_display *display;
@@ -20,6 +21,10 @@ typedef struct bl_application {
 
     bl_window **toplevel_windows;
     uint32_t toplevel_windows_length;
+
+    /// \brief Structure that map wl_surface to bl_surface.
+    bl_ptr_btree *surface_map;
+    struct wl_surface *pointer_surface;
 } bl_application;
 
 extern bl_application *bl_app;  // Singleton object.

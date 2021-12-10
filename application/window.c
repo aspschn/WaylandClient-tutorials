@@ -7,6 +7,7 @@
 
 #include "application.h"
 #include "surface.h"
+#include "pointer-event.h"
 #include "utils.h"
 
 //==============
@@ -209,6 +210,13 @@ static void frame_done_tb(void *data, struct wl_callback *callback, uint32_t tim
         &listener, (void*)(title_bar));
     wl_surface_commit(title_bar->surface);
 }
+
+static void title_bar_pointer_press_handler(bl_pointer_event *event)
+{
+    fprintf(stderr, "You have pressed button %d on title bar\n", event->button);
+
+    bl_pointer_event_free(event);
+}
 // TEST END!!
 
 void bl_window_show(bl_window *window)
@@ -248,6 +256,7 @@ void bl_window_show(bl_window *window)
     create_title_bar_surface(window->title_bar,
         title_bar_buffer, &shm_data, bl_app->shm);
     paint_pixels(window->width * 30, 0x00ff00, &shm_data);
+    window->title_bar->pointer_press_event = title_bar_pointer_press_handler;
 
     // TEST!
 //    window->surface->frame_callback =

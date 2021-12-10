@@ -1,8 +1,10 @@
 #include "surface.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "application.h"
+#include <blusher-collections.h>
 
 bl_surface* bl_surface_new()
 {
@@ -18,6 +20,10 @@ bl_surface* bl_surface_new()
     surface->height = 0;
 
     surface->pointer_press_event = NULL;
+
+    // Add surface to BTree map.
+    bl_ptr_btree_insert(bl_app->surface_map,
+        (uint64_t)surface->surface, (uint64_t)surface);
 
     return surface;
 }

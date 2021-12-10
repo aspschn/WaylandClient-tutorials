@@ -5,3 +5,5 @@ a.out
 
 blusher-collections/Cargo.lock
 blusher-collections/target
+
+.vscode

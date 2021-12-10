@@ -7,6 +7,9 @@
 #include <linux/input.h>
 
 #include "window.h"
+#include "surface.h"
+#include "pointer-event.h"
+#include <blusher-collections.h>
 
 //==============
 // Seat
@@ -59,6 +62,8 @@ static void pointer_enter_handler(void *data, struct wl_pointer *pointer,
 {
     fprintf(stderr, "Pointer entered surface\t%p at %d %d\n", surface, sx, sy);
 
+    bl_app->pointer_surface = surface;
+
     struct wl_buffer *buffer;
     struct wl_cursor_image *image;
 
@@ -95,6 +100,15 @@ static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
         uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
     fprintf(stderr, "Pointer button\n");
+    bl_surface *found = (bl_surface*)bl_ptr_btree_get(bl_app->surface_map,
+        (uint64_t)(bl_app->pointer_surface));
+    if (found != 0) {
+        if (found->pointer_press_event != NULL) {
+            bl_pointer_event *event = bl_pointer_event_new();
+            event->button = button;
+            found->pointer_press_event(event);
+        }
+    }
     if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         /*
         fprintf(stderr, "Move! wl_pointer: %p, xdg_toplevel: %p\n",
@@ -288,6 +302,9 @@ bl_application* bl_application_new()
                                                       // one window.
     application->toplevel_windows_length = 0;
 
+    application->surface_map = bl_ptr_btree_new();
+    application->pointer_surface = NULL;
+
     // Set singleton.
     bl_app = application;
 
@@ -330,6 +347,7 @@ int bl_application_exec(bl_application *application)
 
 void bl_application_free(bl_application *application)
 {
+    bl_ptr_btree_free(application->surface_map);
     free(application);
     application = NULL;
 }
