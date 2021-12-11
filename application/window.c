@@ -169,10 +169,21 @@ static void frame_done_tb(void *data, struct wl_callback *callback, uint32_t tim
     wl_surface_commit(title_bar->surface);
 }
 
-static void title_bar_pointer_press_handler(bl_pointer_event *event)
+static void title_bar_pointer_move_handler(bl_surface *surface,
+        bl_pointer_event *event)
+{
+}
+
+static void title_bar_pointer_press_handler(bl_surface *surface,
+        bl_pointer_event *event)
 {
     fprintf(stderr, "You have pressed button %d on title bar, (%d, %d)\n",
         event->button, event->x, event->y);
+
+    if (event->button == BTN_LEFT) {
+        zxdg_toplevel_v6_move(bl_app->toplevel_windows[0]->xdg_toplevel,
+            bl_app->seat, event->serial);
+    }
 
     bl_pointer_event_free(event);
 }
@@ -211,6 +222,7 @@ void bl_window_show(bl_window *window)
     bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
     const bl_color title_bar_color = bl_color_from_rgb(0, 255, 0);
     bl_surface_set_color(window->title_bar, title_bar_color);
+    window->title_bar->pointer_move_event = title_bar_pointer_move_handler;
     window->title_bar->pointer_press_event = title_bar_pointer_press_handler;
     bl_surface_show(window->title_bar);
 
