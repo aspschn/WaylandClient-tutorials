@@ -1,11 +1,14 @@
 #include "surface.h"
 
+// Std libs
 #include <stdlib.h>
 #include <stdio.h>
 
+// Unix
 #include <sys/mman.h>
 #include <unistd.h>
 
+// Blusher
 #include "application.h"
 #include "utils.h"
 #include <blusher-collections.h>

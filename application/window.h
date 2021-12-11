@@ -22,6 +22,7 @@ typedef struct bl_window {
 
     int width;
     int height;
+    const char *title;
     bl_surface *title_bar;
 } bl_window;
 

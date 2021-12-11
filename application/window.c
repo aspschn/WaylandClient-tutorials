@@ -220,7 +220,7 @@ void bl_window_show(bl_window *window)
     // Draw title bar.
     window->title_bar = bl_surface_new(window->surface);
     bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
-    const bl_color title_bar_color = bl_color_from_rgb(0, 255, 0);
+    const bl_color title_bar_color = bl_color_from_rgb(100, 100, 100);
     bl_surface_set_color(window->title_bar, title_bar_color);
     window->title_bar->pointer_move_event = title_bar_pointer_move_handler;
     window->title_bar->pointer_press_event = title_bar_pointer_press_handler;
