@@ -6,6 +6,9 @@ bl_pointer_event* bl_pointer_event_new()
 {
     bl_pointer_event *event = malloc(sizeof(bl_pointer_event));
 
+    event->x = 0;
+    event->y = 0;
+
     return event;
 }
 

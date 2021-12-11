@@ -171,7 +171,8 @@ static void frame_done_tb(void *data, struct wl_callback *callback, uint32_t tim
 
 static void title_bar_pointer_press_handler(bl_pointer_event *event)
 {
-    fprintf(stderr, "You have pressed button %d on title bar\n", event->button);
+    fprintf(stderr, "You have pressed button %d on title bar, (%d, %d)\n",
+        event->button, event->x, event->y);
 
     bl_pointer_event_free(event);
 }

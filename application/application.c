@@ -63,6 +63,8 @@ static void pointer_enter_handler(void *data, struct wl_pointer *pointer,
     fprintf(stderr, "Pointer entered surface\t%p at %d %d\n", surface, sx, sy);
 
     bl_app->pointer_surface = surface;
+    bl_app->pointer_x = sx;
+    bl_app->pointer_y = sy;
 
     struct wl_buffer *buffer;
     struct wl_cursor_image *image;
@@ -90,6 +92,8 @@ static void pointer_leave_handler(void *data, struct wl_pointer *pointer,
 static void pointer_motion_handler(void *data, struct wl_pointer *pointer,
         uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
 {
+    bl_app->pointer_x = sx;
+    bl_app->pointer_y = sy;
 //    fprintf(stderr, "Pointer moved at %d %d\n", sx, sy);
 //    if (sx > 49152 && sy < 2816) {
 //        zxdg_surface_v6_destroy(xdg_surface);
@@ -105,6 +109,8 @@ static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
         if (found->pointer_press_event != NULL) {
             bl_pointer_event *event = bl_pointer_event_new();
             event->button = button;
+            event->x = bl_app->pointer_x;
+            event->y = bl_app->pointer_y;
             found->pointer_press_event(event);
         }
     }

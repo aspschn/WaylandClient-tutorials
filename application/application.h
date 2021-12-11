@@ -25,6 +25,8 @@ typedef struct bl_application {
     /// \brief Structure that map wl_surface to bl_surface.
     bl_ptr_btree *surface_map;
     struct wl_surface *pointer_surface;
+    int32_t pointer_x;
+    int32_t pointer_y;
 } bl_application;
 
 extern bl_application *bl_app;  // Singleton object.
