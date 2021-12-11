@@ -122,78 +122,6 @@ static void pointer_enter_handler(void *data, struct wl_pointer *pointer,
     wl_surface_commit(surface2);
 }
 
-static void pointer_leave_handler(void *data, struct wl_pointer *pointer,
-        uint32_t serial, struct wl_surface *surface)
-{
-    fprintf(stderr, "Pointer left surface\t%p\n", surface);
-}
-
-static void pointer_motion_handler(void *data, struct wl_pointer *pointer,
-        uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
-{
-//    fprintf(stderr, "Pointer moved at %d %d\n", sx, sy);
-//    if (sx > 49152 && sy < 2816) {
-//        zxdg_surface_v6_destroy(xdg_surface);
-//    }
-}
-
-static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
-        uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
-{
-    fprintf(stderr, "Pointer button\n");
-    if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        fprintf(stderr, "Move! wl_pointer: %p, xdg_toplevel: %p\n",
-            wl_pointer, xdg_toplevel);
-        zxdg_toplevel_v6_move(xdg_toplevel, seat, serial);
-    }
-}
-
-static void pointer_axis_handler(void *data, struct wl_pointer *wl_pointer,
-        uint32_t time, uint32_t axis, wl_fixed_t value)
-{
-    fprintf(stderr, "Pointer handle axis\n");
-}
-
-static const struct wl_pointer_listener pointer_listener = {
-    .enter = pointer_enter_handler,
-    .leave = pointer_leave_handler,
-    .motion = pointer_motion_handler,
-    .button = pointer_button_handler,
-    .axis = pointer_axis_handler,
-};
-
-static void seat_handle_capabilities(void *data, struct wl_seat *seat,
-        enum wl_seat_capability caps)
-{
-    if (caps & WL_SEAT_CAPABILITY_POINTER) {
-        printf("Display has a pointer.\n");
-    }
-    if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
-        printf("Display has a keyboard.\n");
-        keyboard = wl_seat_get_keyboard(seat);
-        wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
-    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD)) {
-        fprintf(stderr, "Destroy keyboard.\n");
-        wl_keyboard_destroy(keyboard);
-        keyboard = NULL;
-    }
-    if (caps & WL_SEAT_CAPABILITY_TOUCH) {
-        printf("Display has a touch screen.\n");
-    }
-
-    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !pointer) {
-        pointer  =wl_seat_get_pointer(seat);
-        wl_pointer_add_listener(pointer, &pointer_listener, NULL);
-    } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && pointer) {
-        wl_pointer_destroy(pointer);
-        pointer = NULL;
-    }
-}
-
-static const struct wl_seat_listener seat_listener = {
-    seat_handle_capabilities,
-};
-
 //============
 // EGL
 //============
@@ -379,8 +307,6 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
     (void)version;
 
     if (strcmp(interface, "wl_seat") == 0) {
-        seat = wl_registry_bind(registry, id, &wl_seat_interface, 1);
-        wl_seat_add_listener(seat, &seat_listener, NULL);
     } else if (strcmp(interface, "wl_compositor") == 0) {
         compositor = wl_registry_bind(registry, id, &wl_compositor_interface,
             1);

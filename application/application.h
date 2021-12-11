@@ -25,8 +25,12 @@ typedef struct bl_application {
     /// \brief Structure that map wl_surface to bl_surface.
     bl_ptr_btree *surface_map;
     struct wl_surface *pointer_surface;
+    /// \brief Store surface local x because press event not have x.
     int32_t pointer_x;
+    /// \brief Store surface local y because press event not have y.
     int32_t pointer_y;
+    /// \brief Store pointer state when pressed or released.
+    uint32_t pointer_state;
 } bl_application;
 
 extern bl_application *bl_app;  // Singleton object.

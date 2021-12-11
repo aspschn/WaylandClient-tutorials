@@ -103,11 +103,12 @@ static void pointer_motion_handler(void *data, struct wl_pointer *pointer,
 static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
         uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
-    fprintf(stderr, "pointer_button_handler. serial: %d\n", serial);
+    bl_app->pointer_state = state;
 
     bl_surface *found = (bl_surface*)bl_ptr_btree_get(bl_app->surface_map,
         (uint64_t)(bl_app->pointer_surface));
     if (found != 0) {
+        // Pointer press event.
         if (found->pointer_press_event != NULL &&
                 state == WL_POINTER_BUTTON_STATE_PRESSED) {
             bl_pointer_event *event = bl_pointer_event_new();
@@ -117,13 +118,16 @@ static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
             event->y = bl_app->pointer_y / 256;
             found->pointer_press_event(found, event);
         }
-    }
-    if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        /*
-        fprintf(stderr, "Move! wl_pointer: %p, xdg_toplevel: %p\n",
-            wl_pointer, xdg_toplevel);
-        zxdg_toplevel_v6_move(xdg_toplevel, seat, serial);
-        */
+        // Pointer relesase event.
+        if (found->pointer_release_event != NULL &&
+                state == WL_POINTER_BUTTON_STATE_RELEASED) {
+            bl_pointer_event *event = bl_pointer_event_new();
+            event->serial = serial;
+            event->button = button;
+            event->x = bl_app->pointer_x / 256;
+            event->y = bl_app->pointer_y / 256;
+            found->pointer_release_event(found, event);
+        }
     }
 }
 
