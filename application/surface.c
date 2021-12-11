@@ -82,7 +82,9 @@ bl_surface* bl_surface_new(bl_surface *parent)
     surface->height = 0;
     surface->color = bl_color_from_rgb(255, 255, 255);
 
+    surface->pointer_move_event = NULL;
     surface->pointer_press_event = NULL;
+    surface->pointer_release_event = NULL;
 
     // Create wl_subsurface if has parent.
     if (surface->parent != NULL) {
