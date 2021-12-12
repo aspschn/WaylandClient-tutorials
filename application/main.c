@@ -17,6 +17,7 @@
 #include "application.h"
 #include "window.h"
 #include "surface.h"
+#include "label.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -365,6 +366,9 @@ int main(int argc, char *argv[])
     bl_surface_set_geometry(rect, 10, 10, 100, 100);
     rect->pointer_press_event = rect_pointer_press_handler;
     bl_surface_show(rect);
+
+//    bl_label *label = bl_label_new(window->surface, "Hello");
+//    bl_label_show(label);
 
     return bl_application_exec(app);
 }
