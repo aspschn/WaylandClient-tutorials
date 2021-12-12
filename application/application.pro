@@ -4,6 +4,7 @@ SOURCES += main.c \
     surface.c \
     window.c \
     color.c \
+    label.c \
     pointer-event.c
 
 HEADERS += utils.h \
@@ -11,9 +12,21 @@ HEADERS += utils.h \
     surface.h \
     window.h \
     color.h \
+    label.h \
     pointer-event.h \
     blusher-collections/include/blusher-collections.h
 
-INCLUDEPATH += wayland-protocols blusher-collections/include
+INCLUDEPATH += wayland-protocols blusher-collections/include \
+    /usr/include/pango-1.0 \
+    /usr/include/glib-2.0 \
+    /usr/lib/glib-2.0/include \
+    /usr/include/harfbuzz \
+    /usr/include/freetype2 \
+    /usr/include/libpng16 \
+    /usr/include/libmount \
+    /usr/include/blkid \
+    /usr/include/fribidi \
+    /usr/include/cairo \
+    /usr/include/pixman-1
 
 DISTFILES += Makefile

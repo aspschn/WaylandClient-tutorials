@@ -5,6 +5,13 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <pango/pango.h>
+
+double pixel_to_pango_size(double pixel)
+{
+    return (pixel * 0.75) * PANGO_SCALE;
+}
+
 int set_cloexec_or_close(int fd)
 {
     long flags;
