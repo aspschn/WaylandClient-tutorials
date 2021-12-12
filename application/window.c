@@ -113,8 +113,10 @@ bl_window* bl_window_new()
 
     window->width = 480;
     window->height = 360;
+    window->title = "Window";
 
     window->title_bar = NULL;
+    window->body = NULL;
 
     return window;
 }
@@ -214,7 +216,7 @@ void bl_window_show(bl_window *window)
         0, 0, window->width, window->height);
     create_window_surface(window->surface);
     fprintf(stderr, "Before paint_pixels. shm_data: %p\n", window->surface->shm_data);
-    paint_pixels(window->width * window->height, 0xffff0000,
+    paint_pixels(window->width * window->height, 0xffd6d1ce,
         &(window->surface->shm_data));
 
     // Draw title bar.

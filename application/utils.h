@@ -1,5 +1,5 @@
-#ifndef _UTILS_H
-#define _UTILS_H
+#ifndef _BLUSHER_UTILS_H
+#define _BLUSHER_UTILS_H
 
 #include <stdlib.h>
 
@@ -11,4 +11,4 @@ int create_tmpfile_cloexec(char *tmpname);
 
 int os_create_anonymous_file(off_t size);
 
-#endif /* _UTILS_H */
+#endif /* _BLUSHER_UTILS_H */

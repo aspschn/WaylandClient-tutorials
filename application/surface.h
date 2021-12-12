@@ -1,5 +1,5 @@
-#ifndef _BL_SURFACE_H
-#define _BL_SURFACE_H
+#ifndef _BLUSHER_SURFACE_H
+#define _BLUSHER_SURFACE_H
 
 #include <wayland-client.h>
 
@@ -40,4 +40,4 @@ void bl_surface_show(bl_surface *surface);
 
 void bl_surface_free(bl_surface *surface);
 
-#endif /* _BL_SURFACE_H */
+#endif /* _BLUSHER_SURFACE_H */

@@ -1,5 +1,5 @@
-#ifndef _BL_WINDOW_H
-#define _BL_WINDOW_H
+#ifndef _BLUSHER_WINDOW_H
+#define _BLUSHER_WINDOW_H
 
 #include <stdlib.h>
 
@@ -24,10 +24,11 @@ typedef struct bl_window {
     int height;
     const char *title;
     bl_surface *title_bar;
+    bl_surface *body;
 } bl_window;
 
 bl_window* bl_window_new();
 
 void bl_window_show(bl_window *window);
 
-#endif /* _BL_WINDOW_H */
+#endif /* _BLUSHER_WINDOW_H */

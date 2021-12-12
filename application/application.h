@@ -1,5 +1,5 @@
-#ifndef _BL_APPLICATION_H
-#define _BL_APPLICATION_H
+#ifndef _BLUSHER_APPLICATION_H
+#define _BLUSHER_APPLICATION_H
 
 #include <stdint.h>
 
@@ -43,4 +43,4 @@ int bl_application_exec(bl_application *application);
 
 void bl_application_free(bl_application *application);
 
-#endif /* _BL_APPLICATION_H */
+#endif /* _BLUSHER_APPLICATION_H */
