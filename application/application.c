@@ -303,17 +303,17 @@ bl_application* bl_application_new()
     application->keyboard = NULL;
     application->pointer = NULL;
 
+    application->toplevel_windows =
+        (bl_window**)malloc(sizeof(bl_window*) * 1); // Currently support only
+                                                     // one window.
+    application->toplevel_windows_length = 0;
+
     application->registry = wl_display_get_registry(application->display);
     wl_registry_add_listener(application->registry,
         &registry_listener, (void*)application);
 
     wl_display_dispatch(application->display);
     wl_display_roundtrip(application->display);
-
-    application->toplevel_windows =
-        (bl_window**)malloc(sizeof(bl_window*) * 1); // Currently support only
-                                                      // one window.
-    application->toplevel_windows_length = 0;
 
     application->surface_map = bl_ptr_btree_new();
     application->pointer_surface = NULL;
