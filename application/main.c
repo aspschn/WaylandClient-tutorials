@@ -367,8 +367,8 @@ int main(int argc, char *argv[])
     rect->pointer_press_event = rect_pointer_press_handler;
     bl_surface_show(rect);
 
-//    bl_label *label = bl_label_new(window->surface, "Hello");
-//    bl_label_show(label);
+    bl_label *label = bl_label_new(window->surface, "안녕!");
+    bl_label_show(label);
 
     return bl_application_exec(app);
 }
