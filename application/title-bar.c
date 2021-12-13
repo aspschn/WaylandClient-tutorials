@@ -1,11 +1,29 @@
 #include "title-bar.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "surface.h"
 #include "window.h"
+#include "application.h"
+#include "pointer-event.h"
 #include "color.h"
 
+//=================
+// Events
+//=================
+static void title_bar_pointer_press_handler(bl_surface *surface,
+        bl_pointer_event *event)
+{
+    if (event->button == BTN_LEFT) {
+//        bl_application_remove_window()
+        fprintf(stderr, "Close!\n");
+    }
+}
+
+//=================
+// Title Bar
+//=================
 bl_title_bar* bl_title_bar_new(bl_window *window)
 {
     bl_title_bar *title_bar = malloc(sizeof(bl_title_bar));
@@ -26,6 +44,8 @@ bl_title_bar* bl_title_bar_new(bl_window *window)
         20, 20);
     color = bl_color_from_rgb(255, 0, 0);
     bl_surface_set_color(title_bar->close_button, color);
+    title_bar->close_button->pointer_press_event =
+        title_bar_pointer_press_handler;
 
     return title_bar;
 }

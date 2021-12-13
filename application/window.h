@@ -32,4 +32,7 @@ bl_window* bl_window_new();
 
 void bl_window_show(bl_window *window);
 
+/// \brief Free the window. Should not call manually.
+void bl_window_free(bl_window *window);
+
 #endif /* _BLUSHER_WINDOW_H */

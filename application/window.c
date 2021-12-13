@@ -242,3 +242,11 @@ void bl_window_show(bl_window *window)
     wl_surface_commit(window->title_bar->surface->surface);
     wl_surface_commit(window->surface->surface);
 }
+
+void bl_window_free(bl_window *window)
+{
+    bl_title_bar_free(window->title_bar);
+    bl_surface_free(window->surface);
+
+    free(window);
+}

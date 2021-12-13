@@ -39,6 +39,9 @@ bl_application* bl_application_new();
 
 void bl_application_add_window(bl_application *application, bl_window *window);
 
+void bl_application_remove_window(bl_application *application,
+        bl_window *window);
+
 int bl_application_exec(bl_application *application);
 
 void bl_application_free(bl_application *application);

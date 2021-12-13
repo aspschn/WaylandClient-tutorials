@@ -218,6 +218,7 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
                 id, &wl_compositor_interface, 3);
         }
     } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
+        fprintf(stderr, "zxdg_shell_v6. version: %d.\n", version);
         if (application->toplevel_windows_length >= 1) {
             uint32_t len = application->toplevel_windows_length;
             for (uint32_t i = 0; i < len; ++i) {
@@ -340,6 +341,24 @@ void bl_application_add_window(bl_application *application, bl_window *window)
     wl_display_dispatch(application->display);
 }
 
+void bl_application_remove_window(bl_application *application,
+        bl_window *window)
+{
+    uint32_t length = application->toplevel_windows_length;
+    bl_window *target = NULL;
+    for (uint32_t i = 0; i < length; ++i) {
+        if (application->toplevel_windows[i] == window) {
+            target = application->toplevel_windows[i];
+            application->toplevel_windows[i] = NULL;
+        }
+    }
+    if (target != NULL) {
+        application->toplevel_windows_length -= 1;
+    }
+
+    bl_window_free(window);
+}
+
 int bl_application_exec(bl_application *application)
 {
     if (application->compositor == NULL) {
@@ -352,7 +371,9 @@ int bl_application_exec(bl_application *application)
     }
 
     while (wl_display_dispatch(application->display) != -1) {
-        ;
+        if (application->toplevel_windows_length == 0) {
+            break;
+        }
     }
 
     return 0;
