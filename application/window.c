@@ -16,43 +16,43 @@
 //==============
 
 // Xdg shell
-static void xdg_shell_ping_handler(void *data,
-        struct zxdg_shell_v6 *xdg_shell, uint32_t serial)
+static void xdg_wm_base_ping_handler(void *data,
+        struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 {
-    zxdg_shell_v6_pong(xdg_shell, serial);
+    xdg_wm_base_pong(xdg_wm_base, serial);
 }
 
-static const struct zxdg_shell_v6_listener xdg_shell_listener = {
-    .ping = xdg_shell_ping_handler,
+static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+    .ping = xdg_wm_base_ping_handler,
 };
 
 // Xdg surface
 static void xdg_surface_configure_handler(void *data,
-        struct zxdg_surface_v6 *xdg_surface, uint32_t serial)
+        struct xdg_surface *xdg_surface, uint32_t serial)
 {
     fprintf(stderr, "xdg_surface_configure_handler.\n");
-    zxdg_surface_v6_ack_configure(xdg_surface, serial);
+    xdg_surface_ack_configure(xdg_surface, serial);
 }
 
-static const struct zxdg_surface_v6_listener xdg_surface_listener = {
+static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure_handler,
 };
 
 // Toplevel
 static void xdg_toplevel_configure_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel, int32_t width, int32_t height,
+        struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height,
         struct wl_array *states)
 {
     // printf("TOPLEVEL Configure: %dx%d\n", width, height);
 }
 
 static void xdg_toplevel_close_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel)
+        struct xdg_toplevel *xdg_toplevel)
 {
     // printf("TOPLEVEL Close %p\n", xdg_toplevel);
 }
 
-static const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = xdg_toplevel_configure_handler,
     .close = xdg_toplevel_close_handler,
 };
@@ -99,11 +99,11 @@ bl_window* bl_window_new()
 {
     bl_window *window = malloc(sizeof(bl_window));
 
-    window->xdg_shell = NULL;
+    window->xdg_wm_base = NULL;
     window->xdg_surface = NULL;
     window->xdg_toplevel = NULL;
 
-    window->xdg_shell_listener = xdg_shell_listener;
+    window->xdg_wm_base_listener = xdg_wm_base_listener;
     window->xdg_surface_listener = xdg_surface_listener;
     window->xdg_toplevel_listener = xdg_toplevel_listener;
 
@@ -184,7 +184,7 @@ static void title_bar_pointer_press_handler(bl_surface *surface,
         event->button, event->x, event->y);
 
     if (event->button == BTN_LEFT) {
-        zxdg_toplevel_v6_move(bl_app->toplevel_windows[0]->xdg_toplevel,
+        xdg_toplevel_move(bl_app->toplevel_windows[0]->xdg_toplevel,
             bl_app->seat, event->serial);
     }
 
@@ -194,16 +194,16 @@ static void title_bar_pointer_press_handler(bl_surface *surface,
 
 void bl_window_show(bl_window *window)
 {
-    zxdg_shell_v6_add_listener(window->xdg_shell,
-        &(window->xdg_shell_listener), NULL);
+    xdg_wm_base_add_listener(window->xdg_wm_base,
+        &(window->xdg_wm_base_listener), NULL);
 
-    window->xdg_surface = zxdg_shell_v6_get_xdg_surface(window->xdg_shell,
+    window->xdg_surface = xdg_wm_base_get_xdg_surface(window->xdg_wm_base,
         window->surface->surface);
-    zxdg_surface_v6_add_listener(window->xdg_surface,
+    xdg_surface_add_listener(window->xdg_surface,
         &(window->xdg_surface_listener), NULL);
 
-    window->xdg_toplevel = zxdg_surface_v6_get_toplevel(window->xdg_surface);
-    zxdg_toplevel_v6_add_listener(window->xdg_toplevel,
+    window->xdg_toplevel = xdg_surface_get_toplevel(window->xdg_surface);
+    xdg_toplevel_add_listener(window->xdg_toplevel,
         &(window->xdg_toplevel_listener), NULL);
 
     // Signal that the surface is ready to be configured.

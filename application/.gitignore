@@ -1,5 +1,7 @@
 wayland-protocols/unstable/xdg-shell.h
 wayland-protocols/unstable/xdg-shell.c
+wayland-protocols/stable/xdg-shell.h
+wayland-protocols/stable/xdg-shell.c
 
 a.out
 

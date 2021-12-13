@@ -217,19 +217,19 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
             application->compositor = wl_registry_bind(registry,
                 id, &wl_compositor_interface, 3);
         }
-    } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-        fprintf(stderr, "zxdg_shell_v6. version: %d.\n", version);
+    } else if (strcmp(interface, "xdg_wm_base") == 0) {
+        fprintf(stderr, "xdg_wm_base. version: %d.\n", version);
         if (application->toplevel_windows_length >= 1) {
             uint32_t len = application->toplevel_windows_length;
             for (uint32_t i = 0; i < len; ++i) {
                 bl_window *window = application->toplevel_windows[i];
-                if (window->xdg_shell != NULL) {
+                if (window->xdg_wm_base != NULL) {
                     continue;
                 }
-                window->xdg_shell = wl_registry_bind(
+                window->xdg_wm_base = wl_registry_bind(
                     registry,
                     id,
-                    &zxdg_shell_v6_interface,
+                    &xdg_wm_base_interface,
                     1
                 );
             }

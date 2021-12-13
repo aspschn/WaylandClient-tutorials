@@ -26,9 +26,6 @@ struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_callback *callback;
 struct wl_callback *frame_callback;
-struct zxdg_shell_v6 *xdg_shell;
-struct zxdg_surface_v6 *xdg_surface;
-struct zxdg_toplevel_v6 *xdg_toplevel;
 struct wl_buffer *buffer;
 
 struct wl_surface *surface2;
@@ -199,46 +196,10 @@ static void create_surface2()
 //==============
 
 // Xdg shell
-static void ping_handler(void *data,
-        struct zxdg_shell_v6 *xdg_shell, uint32_t serial)
-{
-    zxdg_shell_v6_pong(xdg_shell, serial);
-    fprintf(stderr, "Ping pong.\n");
-}
-
-const struct zxdg_shell_v6_listener xdg_shell_listener = {
-    .ping = ping_handler,
-};
 
 // Xdg surface
-static void xdg_surface_configure_handler(void *data,
-        struct zxdg_surface_v6 *xdg_surface, uint32_t serial)
-{
-    zxdg_surface_v6_ack_configure(xdg_surface, serial);
-}
-
-static const struct zxdg_surface_v6_listener xdg_surface_listener = {
-    .configure = xdg_surface_configure_handler,
-};
 
 // Toplevel
-static void xdg_toplevel_configure_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel, int32_t width, int32_t height,
-        struct wl_array *states)
-{
-    printf("TOPLEVEL Configure: %dx%d\n", width, height);
-}
-
-static void xdg_toplevel_close_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel)
-{
-    printf("TOPLEVEL Close %p\n", xdg_toplevel);
-}
-
-static const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
-    .configure = xdg_toplevel_configure_handler,
-    .close = xdg_toplevel_close_handler,
-};
 
 //==============
 // Paint
@@ -312,7 +273,7 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
         compositor = wl_registry_bind(registry, id, &wl_compositor_interface,
             1);
     } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-        xdg_shell = wl_registry_bind(registry, id, &zxdg_shell_v6_interface, 1);
+//        xdg_shell = wl_registry_bind(registry, id, &zxdg_shell_v6_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
         shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
         cursor_theme = wl_cursor_theme_load(NULL, 32, shm);
@@ -371,112 +332,4 @@ int main(int argc, char *argv[])
 //    bl_label_show(label);
 
     return bl_application_exec(app);
-}
-
-
-int main_old(int argc, char *argv[])
-{
-    (void)argc;
-    (void)argv;
-
-    display = wl_display_connect(NULL);
-    if (display == NULL) {
-        fprintf(stderr, "Can't connect to display.\n");
-        exit(1);
-    }
-    printf("Connected to display.\n");
-
-    struct wl_registry *registry = wl_display_get_registry(display);
-//    wl_registry_add_listener(registry, &registry_listener, NULL);
-
-    wl_display_dispatch(display);
-    wl_display_roundtrip(display);
-
-    if (compositor == NULL || xdg_shell == NULL) {
-        fprintf(stderr, "Can't find compositor or xdg_shell.\n");
-        exit(1);
-    }
-    if (subcompositor == NULL) {
-        fprintf(stderr, "Can't find subcompositor.\n");
-        exit(1);
-    }
-
-    // Check surface.
-    surface = wl_compositor_create_surface(compositor);
-    if (surface == NULL) {
-        exit(1);
-    } else {
-        fprintf(stderr, " = surface:     %p\n", surface);
-    }
-
-    zxdg_shell_v6_add_listener(xdg_shell, &xdg_shell_listener, NULL);
-
-    // Check xdg surface.
-    xdg_surface = zxdg_shell_v6_get_xdg_surface(xdg_shell, surface);
-    if (xdg_surface == NULL) {
-        exit(1);
-    } else {
-        fprintf(stderr, " = xdg_surface: %p\n", xdg_surface);
-    }
-    zxdg_surface_v6_add_listener(xdg_surface, &xdg_surface_listener, NULL);
-
-    xdg_toplevel =
-        zxdg_surface_v6_get_toplevel(xdg_surface);
-    if (xdg_toplevel == NULL) {
-        exit(1);
-    }
-    zxdg_toplevel_v6_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
-
-    wl_surface_commit(surface);
-
-    // Wait for the surface to be configured.
-    wl_display_roundtrip(display);
-
-
-    surface2 = wl_compositor_create_surface(compositor);
-    if (surface2 == NULL) {
-        exit(1);
-    } else {
-        fprintf(stderr, "surface2 created: %p\n", surface2);
-    }
-    wl_surface_commit(surface2);
-
-    // Subsurface
-    subsurface = wl_subcompositor_get_subsurface(subcompositor,
-        surface2, surface);
-
-    callback = wl_display_sync(display);
-    wl_callback_add_listener(callback, &configure_callback_listener, NULL);
-    frame_callback = wl_surface_frame(surface);
-    wl_callback_add_listener(frame_callback, &frame_listener, NULL);
-
-    frame_callback2 = wl_surface_frame(surface2);
-    wl_callback_add_listener(frame_callback2, &frame_listener2, NULL);
-
-
-    region2 = wl_compositor_create_region(compositor);
-    wl_region_add(region2, 0, 0, 100, 50);
-    wl_surface_set_input_region(surface2, region2);
-
-
-    create_window();
-//    create_surface2();
-    paint_pixels();
-//    redraw(NULL, NULL, 0);
-//    redraw2(NULL, NULL, 0);
-
-    cursor_surface = wl_compositor_create_surface(compositor);
-
-
-
-    wl_surface_commit(surface);
-
-    while (wl_display_dispatch(display) != -1) {
-        ;
-    }
-
-    wl_display_disconnect(display);
-    printf("Disconnected from display.\n");
-
-    return 0;
 }
