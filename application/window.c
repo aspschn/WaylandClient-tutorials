@@ -158,7 +158,7 @@ static void frame_done_tb(void *data, struct wl_callback *callback, uint32_t tim
 {
     bl_surface *title_bar = (bl_surface*)data;
     wl_callback_destroy(callback);
-    wl_surface_damage(title_bar->surface, 0, 0, 100, 100);
+    wl_surface_damage(title_bar->surface, 0, 0, 40, 100);
     fprintf(stderr, "DRAW!!\n");
 
     create_title_bar_surface(title_bar);

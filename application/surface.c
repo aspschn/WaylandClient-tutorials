@@ -57,7 +57,6 @@ static void paint_pixels(bl_surface *surface)
     uint32_t *pixel = surface->shm_data;
 
     const uint32_t color = bl_color_to_argb(surface->color);
-    fprintf(stderr, "Color: %d\n", bl_color_to_argb(surface->color));
     for (int n = 0; n < (surface->width * surface->height); ++n) {
         *pixel++ = color;
     }
