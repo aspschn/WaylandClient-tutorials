@@ -152,6 +152,7 @@ void bl_surface_free(bl_surface *surface)
     if (surface->buffer != NULL) {
         wl_buffer_destroy(surface->buffer);
     }
+    wl_surface_destroy(surface->surface);
 
     bl_ptr_btree_remove(bl_app->surface_map, (uint64_t)(surface->surface));
 

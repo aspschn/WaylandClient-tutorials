@@ -9,6 +9,8 @@ typedef struct bl_window bl_window;
 typedef struct bl_title_bar {
     bl_surface *surface;
     bl_window *window;
+
+    bl_surface *close_button;
 } bl_title_bar;
 
 bl_title_bar* bl_title_bar_new(bl_window *window);
