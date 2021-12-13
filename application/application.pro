@@ -3,6 +3,7 @@ SOURCES += main.c \
     application.c \
     surface.c \
     window.c \
+    title-bar.c \
     color.c \
     label.c \
     pointer-event.c
@@ -11,6 +12,7 @@ HEADERS += utils.h \
     application.h \
     surface.h \
     window.h \
+    title-bar.h \
     color.h \
     label.h \
     pointer-event.h \

@@ -8,6 +8,7 @@
 #include <unstable/xdg-shell.h>
 
 typedef struct bl_surface bl_surface;
+typedef struct bl_title_bar bl_title_bar;
 
 typedef struct bl_window {
     bl_surface *surface;
@@ -23,7 +24,7 @@ typedef struct bl_window {
     int width;
     int height;
     const char *title;
-    bl_surface *title_bar;
+    bl_title_bar *title_bar;
     bl_surface *body;
 } bl_window;
 

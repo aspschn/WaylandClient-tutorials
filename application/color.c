@@ -28,9 +28,9 @@ uint32_t bl_color_to_argb(bl_color color)
 {
     uint32_t ret = 0x00000000;
 
-    ret += color.red;
+    ret += (color.red) << 16;
     ret += (color.green) << 8;
-    ret += (color.blue) << 16;
+    ret += (color.blue) << 0;
     ret += (color.alpha) << 24;
 
     return ret;

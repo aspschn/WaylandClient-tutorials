@@ -17,6 +17,7 @@ PKG_CONFIGS = `pkg-config --cflags --libs cairo` `pkg-config --cflags --libs pan
 
 SRC = application.c \
 	window.c \
+	title-bar.c \
 	surface.c \
 	utils.c \
 	color.c \

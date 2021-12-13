@@ -7,6 +7,7 @@
 
 #include "application.h"
 #include "surface.h"
+#include "title-bar.h"
 #include "pointer-event.h"
 #include "utils.h"
 
@@ -220,13 +221,12 @@ void bl_window_show(bl_window *window)
         &(window->surface->shm_data));
 
     // Draw title bar.
-    window->title_bar = bl_surface_new(window->surface);
-    bl_surface_set_geometry(window->title_bar, 0, 0, window->width, 30);
-    const bl_color title_bar_color = bl_color_from_rgb(100, 100, 100);
-    bl_surface_set_color(window->title_bar, title_bar_color);
-    window->title_bar->pointer_move_event = title_bar_pointer_move_handler;
-    window->title_bar->pointer_press_event = title_bar_pointer_press_handler;
-    bl_surface_show(window->title_bar);
+    window->title_bar = bl_title_bar_new(window);
+    window->title_bar->surface->pointer_move_event =
+        title_bar_pointer_move_handler;
+    window->title_bar->surface->pointer_press_event =
+        title_bar_pointer_press_handler;
+    bl_title_bar_show(window->title_bar);
 
     // TEST!
 //    window->surface->frame_callback =
@@ -235,10 +235,10 @@ void bl_window_show(bl_window *window)
 //        &window_listener, (void*)(window->surface));
 //    wl_surface_commit(window->surface->surface);
 
-    window->title_bar->frame_callback =
-        wl_surface_frame(window->title_bar->surface);
-    wl_callback_add_listener(window->title_bar->frame_callback,
-        &listener, (void*)(window->title_bar));
-    wl_surface_commit(window->title_bar->surface);
+    window->title_bar->surface->frame_callback =
+        wl_surface_frame(window->title_bar->surface->surface);
+    wl_callback_add_listener(window->title_bar->surface->frame_callback,
+        &listener, (void*)(window->title_bar->surface));
+    wl_surface_commit(window->title_bar->surface->surface);
     wl_surface_commit(window->surface->surface);
 }
