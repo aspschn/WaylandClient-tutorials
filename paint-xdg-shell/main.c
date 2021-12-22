@@ -157,9 +157,9 @@ static void paint_pixels()
     fprintf(stderr, "Painting pixels.\n");
     for (int n = 0; n < WIDTH * HEIGHT; ++n) {
         if (n > 1100 && n < 1200) {
-            pixel[n] = 0xff0000;
+            pixel[n] = 0xffff0000;
         } else {
-            pixel[n] = 0x00ff00;
+            pixel[n] = 0xfff00000;
         }
     }
 }
@@ -193,7 +193,7 @@ static struct wl_buffer* create_buffer()
         WIDTH,
         HEIGHT,
         stride,
-        WL_SHM_FORMAT_XRGB8888
+        WL_SHM_FORMAT_ARGB8888
     );
     wl_shm_pool_destroy(pool);
     return buff;
