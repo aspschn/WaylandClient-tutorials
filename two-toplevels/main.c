@@ -12,14 +12,19 @@
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_surface *surface;
+struct wl_surface *surface2;
 //struct zxdg_shell_v6 *xdg_shell = NULL;
 struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface;
+struct xdg_surface *xdg_surface2;
 struct xdg_toplevel *xdg_toplevel;
+struct xdg_toplevel *xdg_toplevel2;
 struct wl_shm *shm;
 struct wl_buffer *buffer;
+struct wl_buffer *buffer2;
 
 void *shm_data;
+void *shm_data2;
 
 int WIDTH = 480;
 int HEIGHT = 360;
@@ -165,6 +170,15 @@ static void paint_pixels()
     }
 }
 
+static void paint_pixels2()
+{
+    uint32_t *pixel = shm_data2;
+
+    for (int n = 0; n < WIDTH * HEIGHT; ++n) {
+        pixel[n] = 0xff00ff00;
+    }
+}
+
 static struct wl_buffer* create_buffer()
 {
     struct wl_shm_pool *pool;
@@ -200,6 +214,41 @@ static struct wl_buffer* create_buffer()
     return buff;
 }
 
+static struct wl_buffer* create_buffer2()
+{
+    struct wl_shm_pool *pool;
+    int stride = WIDTH * 4; // 4 bytes per pixel
+    int size = stride * HEIGHT;
+    int fd;
+    struct wl_buffer *buff;
+
+    fd = os_create_anonymous_file(size);
+    if (fd < 0) {
+        fprintf(stderr, "Creating a buffer file for %d B filed: %m\n",
+            size);
+        exit(1);
+    }
+
+    shm_data2 = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (shm_data2 == MAP_FAILED) {
+        fprintf(stderr, "mmap filed: %m\n");
+        close(fd);
+        exit(1);
+    }
+
+    pool = wl_shm_create_pool(shm, fd, size);
+    buff = wl_shm_pool_create_buffer(
+        pool,
+        0,
+        WIDTH,
+        HEIGHT,
+        stride,
+        WL_SHM_FORMAT_ARGB8888
+    );
+    wl_shm_pool_destroy(pool);
+    return buff;
+}
+
 static void create_window()
 {
     buffer = create_buffer();
@@ -207,6 +256,14 @@ static void create_window()
     wl_surface_attach(surface, buffer, 0, 0);
     // wl_surface_damage(surface, 0, 0, WIDTH, HEIGHT);
     wl_surface_commit(surface);
+}
+
+static void create_window2()
+{
+    buffer2 = create_buffer2();
+
+    wl_surface_attach(surface2, buffer2, 0, 0);
+    wl_surface_commit(surface2);
 }
 
 static void shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
@@ -294,6 +351,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Can't create surface.\n");
         exit(1);
     }
+    surface2 = wl_compositor_create_surface(compositor);
+    if (surface2 == NULL) {
+        fprintf(stderr, "Can't create surface2\n");
+        exit(1);
+    }
 
     if (xdg_wm_base == NULL) {
         fprintf(stderr, "Haven't got a Xdg wm base.\n");
@@ -305,18 +367,27 @@ int main(int argc, char *argv[])
     xdg_surface =
         xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
     xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+    xdg_surface2 =
+        xdg_wm_base_get_xdg_surface(xdg_wm_base, surface2);
+    xdg_surface_add_listener(xdg_surface2, &xdg_surface_listener, NULL);
 
     xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
     xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+    xdg_toplevel2 = xdg_surface_get_toplevel(xdg_surface2);
+    xdg_toplevel_add_listener(xdg_toplevel2, &xdg_toplevel_listener, NULL);
 
     // Signal that the surface is ready to be configured.
     wl_surface_commit(surface);
+    wl_surface_commit(surface2);
 
     // Wait for the surface to be configured.
     wl_display_roundtrip(display);
 
     create_window();
     paint_pixels();
+
+    create_window2();
+    paint_pixels2();
 
 //    wl_surface_attach(surface, buffer, 0, 0);
 //    wl_surface_commit(surface);
