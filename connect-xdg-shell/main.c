@@ -12,6 +12,7 @@ struct wl_surface *surface;
 struct xdg_wm_base *wm_base = NULL;
 struct xdg_surface *xdg_surface;
 struct wl_shm *shm;
+struct wl_output *output = NULL;
 
 //==============
 // Xdg
@@ -45,6 +46,57 @@ const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 //==============
+// Output
+//==============
+void wl_output_geometry_handler(void *data, struct wl_output *output,
+        int x, int y, int physical_width, int physical_height,
+        int subpixel, const char *make, const char *model,
+        int transform)
+{
+    enum wl_output_subpixel enum_subpixel = subpixel;
+    enum wl_output_transform enum_transform = transform;
+
+    fprintf(stderr, "wl_output_geometry_handler()\n");
+    fprintf(stderr,
+        " - x: %d, y: %d, physical_width: %d, physical_height: %d\n",
+        x, y, physical_width, physical_height);
+    fprintf(stderr,
+        " - subpixel: %d\n", enum_subpixel);
+    fprintf(stderr,
+        " - make: %s, model: %s\n", make, model);
+    fprintf(stderr,
+        " - transform: %d\n", enum_transform);
+}
+
+void wl_output_mode_handler(void *data, struct wl_output *output,
+        unsigned int flags,
+        int width, int height, int refresh)
+{
+    fprintf(stderr, "wl_output_mode_handler()\n");
+    fprintf(stderr, " - width: %d, height: %d, refresh: %d\n",
+        width, height, refresh);
+}
+
+void wl_output_scale_handler(void *data, struct wl_output *output,
+        int factor)
+{
+    fprintf(stderr, "wl_output_scale_handler()\n");
+    fprintf(stderr, " - factor: %d\n", factor);
+}
+
+void wl_output_done_handler(void *data, struct wl_output *output)
+{
+    fprintf(stderr, "wl_output_done_handler()\n");
+}
+
+const struct wl_output_listener wl_output_listener = {
+    .geometry = wl_output_geometry_handler,
+    .mode = wl_output_mode_handler,
+    .done = wl_output_done_handler,
+    .scale = wl_output_scale_handler,
+};
+
+//==============
 // Global
 //==============
 static void global_registry_handler(void *data, struct wl_registry *registry,
@@ -69,6 +121,10 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
         wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
         shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
+    } else if (strcmp(interface, "wl_output") == 0) {
+        output = wl_registry_bind(registry, id, &wl_output_interface, 3);
+        fprintf(stderr, "output: %p\n", output);
+        wl_output_add_listener(output, &wl_output_listener, NULL);
     }
 }
 
@@ -139,6 +195,12 @@ int main(int argc, char *argv[])
     struct xdg_toplevel *xdg_toplevel =
         xdg_surface_get_toplevel(xdg_surface);
     xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+
+    // Signal that the surface is ready to be configured.
+    wl_surface_commit(surface);
+
+    // Wait for the surface to be configured.
+    wl_display_roundtrip(display);
 
     while (1) {
         wl_display_dispatch(display);
