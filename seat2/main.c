@@ -21,9 +21,9 @@ struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_callback *callback;
 struct wl_callback *frame_callback;
-struct zxdg_shell_v6 *xdg_shell;
-struct zxdg_surface_v6 *xdg_surface;
-struct zxdg_toplevel_v6 *xdg_toplevel;
+struct xdg_wm_base *xdg_wm_base;
+struct xdg_surface *xdg_surface;
+struct xdg_toplevel *xdg_toplevel;
 struct wl_buffer *buffer;
 
 struct wl_surface *surface2;
@@ -142,7 +142,7 @@ static void pointer_button_handler(void *data, struct wl_pointer *wl_pointer,
     if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         fprintf(stderr, "Move! wl_pointer: %p, xdg_toplevel: %p\n",
             wl_pointer, xdg_toplevel);
-        zxdg_toplevel_v6_move(xdg_toplevel, seat, serial);
+        xdg_toplevel_move(xdg_toplevel, seat, serial);
     }
 }
 
@@ -269,44 +269,44 @@ static void create_surface2()
 // Xdg
 //==============
 
-// Xdg shell
+// Xdg wm base
 static void ping_handler(void *data,
-        struct zxdg_shell_v6 *xdg_shell, uint32_t serial)
+        struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 {
-    zxdg_shell_v6_pong(xdg_shell, serial);
+    xdg_wm_base_pong(xdg_wm_base, serial);
     fprintf(stderr, "Ping pong.\n");
 }
 
-const struct zxdg_shell_v6_listener xdg_shell_listener = {
+const struct xdg_wm_base_listener xdg_wm_base_listener = {
     .ping = ping_handler,
 };
 
 // Xdg surface
 static void xdg_surface_configure_handler(void *data,
-        struct zxdg_surface_v6 *xdg_surface, uint32_t serial)
+        struct xdg_surface *xdg_surface, uint32_t serial)
 {
-    zxdg_surface_v6_ack_configure(xdg_surface, serial);
+    xdg_surface_ack_configure(xdg_surface, serial);
 }
 
-static const struct zxdg_surface_v6_listener xdg_surface_listener = {
+static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure_handler,
 };
 
 // Toplevel
 static void xdg_toplevel_configure_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel, int32_t width, int32_t height,
+        struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height,
         struct wl_array *states)
 {
     printf("TOPLEVEL Configure: %dx%d\n", width, height);
 }
 
 static void xdg_toplevel_close_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel)
+        struct xdg_toplevel *xdg_toplevel)
 {
     printf("TOPLEVEL Close %p\n", xdg_toplevel);
 }
 
-static const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = xdg_toplevel_configure_handler,
     .close = xdg_toplevel_close_handler,
 };
@@ -384,8 +384,8 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
     } else if (strcmp(interface, "wl_compositor") == 0) {
         compositor = wl_registry_bind(registry, id, &wl_compositor_interface,
             1);
-    } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-        xdg_shell = wl_registry_bind(registry, id, &zxdg_shell_v6_interface, 1);
+    } else if (strcmp(interface, "xdg_wm_base") == 0) {
+        xdg_wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
         shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
         cursor_theme = wl_cursor_theme_load(NULL, 32, shm);
@@ -437,8 +437,8 @@ int main(int argc, char *argv[])
     wl_display_dispatch(display);
     wl_display_roundtrip(display);
 
-    if (compositor == NULL || xdg_shell == NULL) {
-        fprintf(stderr, "Can't find compositor or xdg_shell.\n");
+    if (compositor == NULL || xdg_wm_base == NULL) {
+        fprintf(stderr, "Can't find compositor or xdg_wm_base.\n");
         exit(1);
     }
     if (subcompositor == NULL) {
@@ -454,24 +454,24 @@ int main(int argc, char *argv[])
         fprintf(stderr, " = surface:     %p\n", surface);
     }
 
-    zxdg_shell_v6_add_listener(xdg_shell, &xdg_shell_listener, NULL);
+    xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
 
     // Check xdg surface.
-    xdg_surface = zxdg_shell_v6_get_xdg_surface(xdg_shell, surface);
+    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
     if (xdg_surface == NULL) {
         exit(1);
     } else {
         fprintf(stderr, " = xdg_surface: %p\n", xdg_surface);
     }
 
-    zxdg_surface_v6_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+    xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
 
     xdg_toplevel =
-        zxdg_surface_v6_get_toplevel(xdg_surface);
+        xdg_surface_get_toplevel(xdg_surface);
     if (xdg_toplevel == NULL) {
         exit(1);
     }
-    zxdg_toplevel_v6_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+    xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
     wl_surface_commit(surface);
 
