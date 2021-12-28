@@ -388,14 +388,20 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
         xdg_wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, "wl_shm") == 0) {
         shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
-        cursor_theme = wl_cursor_theme_load(NULL, 32, shm);
+        cursor_theme = wl_cursor_theme_load("breeze_cursors", 24, shm);
         if (cursor_theme == NULL) {
             fprintf(stderr, "Can't get cursor theme.\n");
+        } else {
+            fprintf(stderr, "Got a cursor theme %p.\n", cursor_theme);
         }
-        default_cursor = wl_cursor_theme_get_cursor(cursor_theme, "left_ptr");
+        default_cursor = wl_cursor_theme_get_cursor(cursor_theme, "wait");
         if (default_cursor == NULL) {
             fprintf(stderr, "Can't get default cursor.\n");
-            exit(1);
+            default_cursor = wl_cursor_theme_get_cursor(cursor_theme,
+                "left_ptr");
+            if (default_cursor == NULL) {
+                exit(1);
+            }
         }
     } else if (strcmp(interface, "wl_subcompositor") == 0) {
         subcompositor = wl_registry_bind(registry, id,
