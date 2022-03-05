@@ -5,9 +5,6 @@
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
-struct wl_surface *surface;
-struct wl_shell *shell = NULL;
-struct wl_shell_surface *shell_surface;
 
 //==============
 // Global
@@ -23,8 +20,6 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
             &wl_compositor_interface,
             version
         );
-    } else if (strcmp(interface, "wl_shell") == 0) {
-        shell = wl_registry_bind(registry, id, &wl_shell_interface, 1);
     } else {
         printf("(%d) Got a registry event for <%s> id <%d>\n",
             version, interface, id);
@@ -68,32 +63,6 @@ int main(int argc, char *argv[])
     } else {
         fprintf(stderr, "Found compositor!\n");
     }
-
-    // Check surface.
-    fprintf(stderr, " - Checking surface...\n");
-    surface = wl_compositor_create_surface(compositor);
-    if (surface == NULL) {
-        fprintf(stderr, "Can't create surface.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created surface!\n");
-    }
-
-    if (shell == NULL) {
-        fprintf(stderr, "Haven't got a Wayland shell.\n");
-        exit(1);
-    }
-
-    // Check shell surface.
-    fprintf(stderr, " - Checking shell surface...\n");
-    shell_surface = wl_shell_get_shell_surface(shell, surface);
-    if (shell_surface == NULL) {
-        fprintf(stderr, "Can't create shell surface.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created shell surface!\n");
-    }
-    wl_shell_surface_set_toplevel(shell_surface);
 
     wl_display_disconnect(display);
     printf("Disconnected from display.\n");
