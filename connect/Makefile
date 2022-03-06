@@ -1,2 +1,2 @@
 default:
-	gcc -lwayland-client main.c
+	gcc main.c -lwayland-client
