@@ -113,7 +113,7 @@ int init(GLuint *program_object)
             char *info_log = malloc(sizeof(char) * info_len);
 
             glGetProgramInfoLog(*program_object, info_len, NULL, info_log);
-            fprintf(stderr, "Erro linking program: %s\n", info_log);
+            fprintf(stderr, "Error linking program: %s\n", info_log);
             free(info_log);
         }
 
