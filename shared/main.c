@@ -291,6 +291,10 @@ int main(int argc, char *argv[])
     xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
     xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
+    // This step is important on Weston.
+    wl_surface_commit(surface);
+    wl_display_roundtrip(display);
+
     // Create a buffer.
     buffer = create_buffer(480, 360);
 
