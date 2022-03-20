@@ -116,7 +116,10 @@ int os_create_anonymous_file(off_t size)
     return fd;
 }
 
-static void shm_format_listener(void *data,
+//=============
+// Shm
+//=============
+static void shm_format_handler(void *data,
         struct wl_shm *shm, uint32_t format)
 {
     (void)data;
@@ -126,7 +129,7 @@ static void shm_format_listener(void *data,
 }
 
 static const struct wl_shm_listener shm_listener = {
-    .format = shm_format_listener,
+    .format = shm_format_handler,
 };
 
 //==============
