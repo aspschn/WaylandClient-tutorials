@@ -1,116 +1,188 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+
+// Cairo
+#include <cairo.h>
+
 #include <wayland-client.h>
-#include <wayland-egl.h>
-#include <EGL/egl.h>
-#include <GLES2/gl2.h>
 
 #include "xdg-shell.h"
 
-#include <cairo/cairo.h>
-#include <cairo/cairo-gl.h>
-#include <pango/pangocairo.h>
-
-#include "utils.h"
-
 struct wl_display *display = NULL;
+struct wl_registry *registry = NULL;
 struct wl_compositor *compositor = NULL;
-struct wl_surface *surface;
-struct zxdg_shell_v6 *xdg_shell = NULL;
-struct zxdg_surface_v6 *xdg_surface;
-struct zxdg_toplevel_v6 *xdg_toplevel;
-struct wl_egl_window *egl_window;
-struct wl_region *region;
+struct wl_surface *surface = NULL;
 
-EGLDisplay egl_display;
-EGLConfig egl_conf;
-EGLSurface egl_surface;
-EGLContext egl_context;
+struct wl_shm *shm = NULL;
+struct wl_buffer *buffer = NULL;
+void *shm_data;
 
-cairo_surface_t *cairo_surface;
-cairo_device_t *cairo_device;
+struct xdg_wm_base *xdg_wm_base = NULL;
+struct xdg_surface *xdg_surface = NULL;
+struct xdg_toplevel *xdg_toplevel = NULL;
 
-const char* egl_error_string(int err)
+//=================
+// Shared Memory
+//=================
+static int set_cloexec_or_close(int fd)
 {
-    switch (err) {
-    case EGL_SUCCESS:
-        return "EGL_SUCCESS";
-    case EGL_NOT_INITIALIZED:
-        return "EGL_NOT_INITIALIZED";
-    case EGL_BAD_ACCESS:
-        return "EGL_BAD_ACCESS";
-    case EGL_BAD_ALLOC:
-        return "EGL_BAD_ALLOC";
-    case EGL_BAD_ATTRIBUTE:
-        return "EGL_BAD_ATTRIBUTE";
-    case EGL_BAD_CONTEXT:
-        return "EGL_BAD_CONTEXT";
-    case EGL_BAD_CONFIG:
-        return "EGL_BAD_CONFIG";
-    case EGL_BAD_CURRENT_SURFACE:
-        return "EGL_BAD_CURRENT_SURFACE";
-    case EGL_BAD_DISPLAY:
-        return "EGL_BAD_DISPLAY";
-    case EGL_BAD_SURFACE:
-        return "EGL_BAD_SURFACE";
-    case EGL_BAD_MATCH:
-        return "EGL_BAD_MATCH";
-    case EGL_BAD_PARAMETER:
-        return "EGL_BAD_PARAMETER";
-    case EGL_BAD_NATIVE_PIXMAP:
-        return "EGL_BAD_NATIVE_PIXMAP";
-    case EGL_BAD_NATIVE_WINDOW:
-        return "EGL_BAD_NATIVE_WINDOW";
-    case EGL_CONTEXT_LOST:
-        return "EGL_CONTEXT_LOST";
-    default:
-        return "UNKNOWN ERROR!!";
+    long flags;
+
+    if (fd == -1)
+        return -1;
+
+    flags = fcntl(fd, F_GETFD);
+    if (flags == -1)
+        goto err;
+
+    if (fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == -1)
+        goto err;
+
+    return fd;
+
+err:
+    close(fd);
+    return -1;
+}
+
+static int create_tmpfile_cloexec(char *tmpname)
+{
+    int fd;
+
+#ifdef HAVE_MKOSTEMP
+    fd = mkostemp(tmpname, O_CLOEXEC);
+    if (fd >= 0)
+        unlink(tmpname);
+#else
+    fd = mkstemp(tmpname);
+    if (fd >= 0) {
+        fd = set_cloexec_or_close(fd);
+        unlink(tmpname);
     }
+#endif
+
+    return fd;
 }
 
-//==============
-// Xdg
-//==============
-void xdg_toplevel_configure_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel, int32_t width, int32_t height,
-        struct wl_array *states)
+/*
+ * Create a new, unique, anonymous file of the given size, and
+ * return the file descriptor for it. The file descriptor is set
+ * CLOEXEC. The file is immediately suitable for mmap()'ing
+ * the given size at offset zero.
+ *
+ * The file should not have a permanent backing store like a disk,
+ * but may have if XDG_RUNTIME_DIR is not properly implemented in OS.
+ *
+ * The file name is deleted from the file system.
+ *
+ * The file is suitable for buffer sharing between processes by
+ * transmitting the file descriptor over Unix sockets using the
+ * SCM_RIGHTS methods.
+ */
+int os_create_anonymous_file(off_t size)
 {
-    printf("Configure: %dx%d\n", width, height);
+    static const char template[] = "/tutorial-shared-XXXXXX";
+    const char *path;
+    char *name;
+    int fd;
+
+    path = getenv("XDG_RUNTIME_DIR");
+    if (!path) {
+        errno = ENOENT;
+        return -1;
+    }
+
+    name = malloc(strlen(path) + sizeof(template));
+    if (!name)
+        return -1;
+    strcpy(name, path);
+    strcat(name, template);
+
+    fd = create_tmpfile_cloexec(name);
+
+    free(name);
+
+    if (fd < 0)
+        return -1;
+
+    if (ftruncate(fd, size) < 0) {
+        close(fd);
+        return -1;
+    }
+
+    return fd;
 }
 
-void xdg_toplevel_close_handler(void *data,
-        struct zxdg_toplevel_v6 *xdg_toplevel)
+//=============
+// Shm
+//=============
+static void shm_format_handler(void *data,
+        struct wl_shm *shm, uint32_t format)
 {
-    printf("Close.\n");
+    (void)data;
+    (void)shm;
+
+    fprintf(stderr, "Format %d\n", format);
 }
 
-const struct zxdg_toplevel_v6_listener xdg_toplevel_listener = {
-    .configure = xdg_toplevel_configure_handler,
-    .close = xdg_toplevel_close_handler,
+static const struct wl_shm_listener shm_listener = {
+    .format = shm_format_handler,
 };
 
-void xdg_surface_configure_handler(void *data,
-        struct zxdg_surface_v6 *xdg_surface, uint32_t serial)
+//==============
+// XDG
+//==============
+static void xdg_wm_base_ping_handler(void *data,
+        struct xdg_wm_base *wm_base, uint32_t serial)
 {
-    fprintf(stderr, " = xdg_surface_configure_handler(). serial: %d\n",
-        serial);
-    zxdg_surface_v6_ack_configure(xdg_surface, serial);
+    (void)data;
+
+    xdg_wm_base_pong(wm_base, serial);
 }
 
-const struct zxdg_surface_v6_listener xdg_surface_listener = {
+static const struct xdg_wm_base_listener xdg_wm_base_listener = {
+    .ping = xdg_wm_base_ping_handler,
+};
+
+static void xdg_surface_configure_handler(void *data,
+        struct xdg_surface *xdg_surface, uint32_t serial)
+{
+    (void)data;
+
+    xdg_surface_ack_configure(xdg_surface, serial);
+}
+
+static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = xdg_surface_configure_handler,
 };
 
-void xdg_shell_ping_handler(void *data, struct zxdg_shell_v6 *xdg_shell,
-        uint32_t serial)
+static void xdg_toplevel_configure_handler(void *data,
+        struct xdg_toplevel *toplevel, int32_t width, int32_t height,
+        struct wl_array *states)
 {
-    zxdg_shell_v6_pong(xdg_shell, serial);
-    printf("Pong!\n");
+    (void)data;
+    (void)toplevel;
+    (void)states;
+
+    fprintf(stderr, "XDG toplevel configure: %dx%d\n", width, height);
 }
 
-const struct zxdg_shell_v6_listener xdg_shell_listener = {
-    .ping = xdg_shell_ping_handler,
+static void xdg_toplevel_close_handler(void *data,
+        struct xdg_toplevel *toplevel)
+{
+    (void)data;
+    (void)toplevel;
+}
+
+static const struct xdg_toplevel_listener xdg_toplevel_listener = {
+    .configure = xdg_toplevel_configure_handler,
+    .close = xdg_toplevel_close_handler,
 };
 
 //==============
@@ -119,237 +191,166 @@ const struct zxdg_shell_v6_listener xdg_shell_listener = {
 static void global_registry_handler(void *data, struct wl_registry *registry,
         uint32_t id, const char *interface, uint32_t version)
 {
+    printf("Got a registry event for <%s>, id: %d, version: %d.\n",
+        interface, id, version);
     if (strcmp(interface, "wl_compositor") == 0) {
-        fprintf(stderr, "Interface is <wl_compositor>.\n");
-        compositor = wl_registry_bind(
-            registry,
-            id,
-            &wl_compositor_interface,
-            version
-        );
-    } else if (strcmp(interface, "zxdg_shell_v6") == 0) {
-        fprintf(stderr, "Interface is <zxdg_shell_v6>.\n");
-        xdg_shell = wl_registry_bind(
-            registry, id, &zxdg_shell_v6_interface, 1);
+        compositor = wl_registry_bind(registry,
+            id, &wl_compositor_interface, 4);
+    } else if (strcmp(interface, "xdg_wm_base") == 0) {
+        xdg_wm_base = wl_registry_bind(registry,
+            id, &xdg_wm_base_interface, 1);
+    } else if (strcmp(interface, "wl_shm") == 0) {
+        shm = wl_registry_bind(registry,
+            id, &wl_shm_interface, 1);
+        wl_shm_add_listener(shm, &shm_listener, NULL);
     }
 }
 
-static void global_registry_remover(void *data, struct wl_registry *registry,
-        uint32_t id)
+static void global_registry_remove_handler(void *data,
+        struct wl_registry *registry, uint32_t id)
 {
     printf("Got a registry losing event for <%d>\n", id);
 }
 
 static const struct wl_registry_listener registry_listener = {
-    global_registry_handler,
-    global_registry_remover
+    .global = global_registry_handler,
+    .global_remove = global_registry_remove_handler,
 };
 
-//================
-// Cairo / Pango
-//================
-static void draw_text(cairo_t *cr, double x, double y)
+//==========
+// Buffer
+//==========
+static struct wl_buffer* create_buffer(int width, int height)
 {
-    PangoLayout *layout;
-    PangoFontDescription *desc;
+    struct wl_shm_pool *pool;
+    int stride = width * 4; // 4 bytes per pixel in our ARGB8888 format.
+    int size = stride * height;
+    int fd;
+    struct wl_buffer *buff;
 
-    layout = pango_cairo_create_layout(cr);
-
-    pango_layout_set_text(layout, "おはよう！", -1);
-
-    desc = pango_font_description_from_string("serif");
-    pango_font_description_set_size(desc, pixel_to_pango_size(16));
-
-    pango_layout_set_font_description(layout, desc);
-    pango_font_description_free(desc);
-
-    cairo_save(cr);
-
-    cairo_set_source_rgb(cr, 1.0, 0.0, 0.0);
-
-    pango_cairo_update_layout(cr, layout);
-
-    // pango_layout_get_size(layout, &width, &height);
-    cairo_move_to(cr, x, y);
-    pango_cairo_show_layout(cr, layout);
-
-    cairo_restore(cr);
-
-    g_object_unref(layout);
-}
-
-static void init_cairo()
-{
-    cairo_device = cairo_egl_device_create(egl_display, egl_context);
-    if (cairo_device_status(cairo_device) != CAIRO_STATUS_SUCCESS) {
-        exit(1);
-    }
-}
-
-//==============
-// EGL
-//==============
-
-static void create_opaque_region()
-{
-    fprintf(stderr, " = Begin create_opaque_region()\n");
-
-    region = wl_compositor_create_region(compositor);
-    wl_region_add(
-        region,
-        0,
-        0,
-        480,
-        360
-    );
-    wl_surface_set_opaque_region(surface, region);
-
-    fprintf(stderr, " = End create_opaque_region()\n");
-}
-
-static void create_window()
-{
-    egl_window = wl_egl_window_create(surface, 480, 360);
-
-    if (egl_window == EGL_NO_SURFACE) {
+    fd = os_create_anonymous_file(size);
+    if (fd < 0) {
+        fprintf(stderr, "Failed to create a buffer. size: %d\n", size);
         exit(1);
     }
 
-    egl_surface =
-        eglCreateWindowSurface(egl_display, egl_conf, egl_window, NULL);
-    if (egl_surface == NULL) {
-        fprintf(stderr, "Can't create EGL window surface.\n");
+    shm_data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (shm_data == MAP_FAILED) {
+        fprintf(stderr, "mmap failed!\n");
+        close(fd);
+        exit(1);
     }
 
-    // Cairo
-//    cairo_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 480, 360);
-    cairo_surface = cairo_gl_surface_create_for_egl(cairo_device, egl_surface,
-        480, 360);
-    cairo_t *cr = cairo_create(cairo_surface);
-    int err = cairo_status(cr);
-    if (err != CAIRO_STATUS_SUCCESS) {
-        fprintf(stderr, "Cairo error on create %s\n",
-            cairo_status_to_string(err));
-    }
+    pool = wl_shm_create_pool(shm, fd, size);
+    buff = wl_shm_pool_create_buffer(pool, 0, width, height, stride,
+        WL_SHM_FORMAT_ARGB8888);
+    wl_shm_pool_destroy(pool);
 
-    cairo_set_source_rgb(cr, 0.0, 1.0, 0.0);
-    cairo_paint(cr);
-    draw_text(cr, 10, 10);
-    draw_text(cr, 50, 50);
-
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
-        fprintf(stderr, "Made current.\n");
-    } else {
-        fprintf(stderr, "Made current failed!\n");
-    }
-
-    cairo_gl_surface_swapbuffers(cairo_surface);
-
-//    if (eglSwapBuffers(egl_display, egl_surface)) {
-//        fprintf(stderr, "Swapped buffers.\n");
-//    } else {
-//        fprintf(stderr, "Swapped buffers failed!\n");
-//    }
+    return buff;
 }
 
-static void init_egl()
-{
-    EGLint major, minor, count ,n, size;
-    EGLConfig *configs;
-    EGLint config_attribs[] = {
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_RED_SIZE, 8,
-        EGL_GREEN_SIZE, 8,
-        EGL_BLUE_SIZE, 8,
-        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-        EGL_NONE,
-    };
-
-    static const EGLint context_attribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION, 2,
-        EGL_NONE,
-    };
-
-    egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (egl_display == EGL_NO_DISPLAY) {
-        exit(1);
-    }
-
-    if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
-        exit(1);
-    }
-    printf("EGL major: %d, minor: %d.\n", major, minor);
-
-    eglGetConfigs(egl_display, NULL, 0, &count);
-    printf("EGL has %d configs.\n", count);
-
-    configs = calloc(count, sizeof *configs);
-
-    eglChooseConfig(egl_display, config_attribs, configs, count, &n);
-
-    for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(
-            egl_display,
-            configs[i],
-            EGL_BUFFER_SIZE,
-            &size
-        );
-        printf("Buffer size for config %d is %d.\n", i, size);
-
-        // Just choose the first one
-        egl_conf = configs[i];
-        break;
-    }
-
-    egl_context = eglCreateContext(
-        egl_display,
-        egl_conf,
-        EGL_NO_CONTEXT,
-        context_attribs
-    );
-    if (egl_context == NULL) {
-        fprintf(stderr, "Failed create EGL context.\n");
-        exit(1);
-    }
-}
-
+//==========
+// Main
+//==========
 int main(int argc, char *argv[])
 {
-    display = wl_display_connect(NULL);
+    (void)argc;
+    (void)argv;
 
-    struct wl_registry *registry = wl_display_get_registry(display);
+    display = wl_display_connect(NULL);
+    if (display == NULL) {
+        fprintf(stderr, "Failed to connect to display.\n");
+        exit(1);
+    }
+    printf("Connected to display.\n");
+
+    registry = wl_display_get_registry(display);
     wl_registry_add_listener(registry, &registry_listener, NULL);
 
     wl_display_dispatch(display);
     wl_display_roundtrip(display);
 
+    // Check compositor.
+    fprintf(stderr, " - Checking compositor...\n");
+    if (compositor == NULL) {
+        fprintf(stderr, "Can't find compositor.\n");
+        exit(1);
+    } else {
+        printf("Found compositor!\n");
+    }
+
+    // Surface
     surface = wl_compositor_create_surface(compositor);
+    if (surface == NULL) {
+        exit(1);
+    }
 
-    zxdg_shell_v6_add_listener(xdg_shell, &xdg_shell_listener, NULL);
+    // XDG.
+    xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
 
-    xdg_surface = zxdg_shell_v6_get_xdg_surface(xdg_shell, surface);
-    zxdg_surface_v6_add_listener(xdg_surface, &xdg_surface_listener, NULL);
+    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
+    xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
 
-    xdg_toplevel = zxdg_surface_v6_get_toplevel(xdg_surface);
-    zxdg_toplevel_v6_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
+    xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
+    xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
+    // This step is important on Weston.
     wl_surface_commit(surface);
-
-    // Wait for the surface to be configured.
     wl_display_roundtrip(display);
 
-    create_opaque_region();
-    init_egl();
-    init_cairo();
-    create_window();
+    // Create a buffer.
+    buffer = create_buffer(480, 360);
 
+    wl_surface_attach(surface, buffer, 0, 0);
     wl_surface_commit(surface);
 
+    // Drawing pixels.
+    uint32_t *pixel = shm_data;
+    for (int i = 0; i < 480 * 360; ++i) {
+        *pixel = 0xde000000;
+        ++pixel;
+    }
+
+    // Cairo
+    cairo_surface_t *cairo_surface = cairo_image_surface_create_from_png(
+        "nyan-cat.png");
+    if (cairo_surface_status(cairo_surface) != CAIRO_STATUS_SUCCESS) {
+        fprintf(stderr, "Failed to load PNG image.\n");
+        exit(1);
+    }
+    unsigned char *image_data = cairo_image_surface_get_data(cairo_surface);
+    int image_width = cairo_image_surface_get_width(cairo_surface);
+    int image_height = cairo_image_surface_get_height(cairo_surface);
+
+    uint32_t *image_pixel = (uint32_t*)image_data;
+    uint32_t *target = (uint32_t*)shm_data;
+    for (int i = 0; i < image_height; ++i) {
+        for (int j = 0; j < image_width; ++j) {
+            *target = *image_pixel++;
+            ++target;
+            // Because our surface is larget than image, skip to next line.
+            if (j == image_width - 1) {
+                target += (480 - image_width);
+            }
+        }
+    }
+
+    cairo_surface_destroy(cairo_surface);
+
+    // Display loop.
     while (wl_display_dispatch(display) != -1) {
         ;
     }
 
+    // Free resources.
+    xdg_toplevel_destroy(xdg_toplevel);
+
+    xdg_surface_destroy(xdg_surface);
+
+    wl_surface_destroy(surface);
+
     wl_display_disconnect(display);
+    printf("Disconnected from display.\n");
 
     return 0;
 }
