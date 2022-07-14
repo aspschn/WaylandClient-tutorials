@@ -203,21 +203,6 @@ static void init_vulkan()
 {
     VkResult result;
 
-    // Create instance.
-    vulkan_instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    vulkan_instance_create_info.pNext = NULL;
-
-    result = vkCreateInstance(&vulkan_instance_create_info, NULL,
-        &vulkan_instance);
-
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create Vulkan instance - result: %d\n",
-            result);
-        return;
-    } else {
-        fprintf(stderr, "Vulkan instance created!\n");
-    }
-
     // Check extensions.
     uint32_t extensions = 0;
     vkEnumerateInstanceExtensionProperties(NULL, &extensions, NULL);
@@ -244,9 +229,22 @@ static void init_vulkan()
             strlen(properties.extensionName + 1));
         strcpy(*(vulkan_extension_names + i), properties.extensionName);
     }
-    for (uint32_t i = 0; i < extensions; ++i) {
-        fprintf(stderr, " - Stored extension name: %s\n",
-            *(vulkan_extension_names + i));
+
+    // Create instance.
+    vulkan_instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    vulkan_instance_create_info.pNext = NULL;
+    vulkan_instance_create_info.enabledExtensionCount = extensions;
+    vulkan_instance_create_info.ppEnabledExtensionNames = vulkan_extension_names;
+
+    result = vkCreateInstance(&vulkan_instance_create_info, NULL,
+        &vulkan_instance);
+
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create Vulkan instance - result: %d\n",
+            result);
+        return;
+    } else {
+        fprintf(stderr, "Vulkan instance created!\n");
     }
 
     // Pick physical device.
