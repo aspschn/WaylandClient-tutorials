@@ -71,6 +71,9 @@ VkPresentModeKHR vulkan_present_mode;
 VkExtent2D vulkan_extent;
 VkSwapchainCreateInfoKHR vulkan_swapchain_create_info;
 VkSwapchainKHR vulkan_swapchain = NULL;
+const char *device_extensions[] = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+};
 
 
 EGLDisplay egl_display;
@@ -426,8 +429,8 @@ static void create_vulkan_logical_device()
     vulkan_device_create_info.pQueueCreateInfos = vulkan_queue_create_infos;
     vulkan_device_create_info.queueCreateInfoCount = 1;
     vulkan_device_create_info.pEnabledFeatures = &vulkan_device_features;
-    vulkan_device_create_info.enabledExtensionCount = 0;
-    vulkan_device_create_info.ppEnabledExtensionNames = NULL;
+    vulkan_device_create_info.enabledExtensionCount = 1;
+    vulkan_device_create_info.ppEnabledExtensionNames = device_extensions;
     vulkan_device_create_info.enabledLayerCount = 0;
 
     result = vkCreateDevice(vulkan_physical_device, &vulkan_device_create_info,
@@ -525,7 +528,8 @@ static void create_vulkan_swapchain()
 {
     VkResult result;
 
-    fprintf(stderr, "Capabilities max image count: %d\n",
+    fprintf(stderr, "Capabilities min, max image count: %d, %d\n",
+        vulkan_capabilities.minImageCount,
         vulkan_capabilities.maxImageCount);
     uint32_t image_count = vulkan_capabilities.minImageCount + 1;
     fprintf(stderr, "Image count: %d\n", image_count);
@@ -562,6 +566,7 @@ static void create_vulkan_swapchain()
         fprintf(stderr, "Failed to create swapchain!\n");
         return;
     }
+    fprintf(stderr, "Swapchain created!\n");
 }
 
 //===========
