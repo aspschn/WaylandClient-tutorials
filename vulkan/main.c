@@ -85,6 +85,20 @@ uint8_t *frag_shader_code = NULL;
 uint32_t frag_shader_code_size = 0;
 VkPipelineShaderStageCreateInfo vulkan_vert_shader_stage_create_info;
 VkPipelineShaderStageCreateInfo vulkan_frag_shader_stage_create_info;
+VkPipelineShaderStageCreateInfo vulkan_shader_stage_create_info;
+VkPipelineVertexInputStateCreateInfo vulkan_vert_input_state_create_info;
+VkPipelineInputAssemblyStateCreateInfo vulkan_input_assembly_state_create_info;
+VkPipelineViewportStateCreateInfo vulkan_vewport_state_create_info;
+VkPipelineRasterizationStateCreateInfo vulkan_rasterization_state_create_info;
+VkPipelineMultisampleStateCreateInfo vulkan_multisample_state_create_info;
+VkPipelineColorBlendAttachmentState vulkan_clor_blend_attachment_state;
+VkPipelineColorBlendStateCreateInfo vulkan_color_blend_state_create_info;
+VkDynamicState dynamic_states[] = {
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
+};
+VkPipelineDynamicStateCreateInfo vulkan_dynamic_state_create_info;
+VkPipelineLayoutCreateInfo vulkan_layout_create_info;
 
 
 EGLDisplay egl_display;
@@ -697,6 +711,12 @@ static void create_vulkan_graphics_pipeline()
     vulkan_frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     vulkan_frag_shader_stage_create_info.module = frag_shader_module;
     vulkan_frag_shader_stage_create_info.pName = "main";
+
+    // Dynamic states.
+    VkPipelineDynamicStateCreateInfo create_info;
+    create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    create_info.dynamicStateCount = 2;
+    create_info.pDynamicStates = dynamic_states;
 }
 
 //===========
