@@ -78,6 +78,13 @@ VkImage *vulkan_swapchain_images = NULL;
 uint32_t vulkan_swapchain_images_length = 0;
 // Image views.
 VkImageView *vulkan_image_views = NULL;
+// Shaders.
+uint8_t *vert_shader_code = NULL;
+uint32_t vert_shader_code_size = 0;
+uint8_t *frag_shader_code = NULL;
+uint32_t frag_shader_code_size = 0;
+VkPipelineShaderStageCreateInfo vulkan_vert_shader_stage_create_info;
+VkPipelineShaderStageCreateInfo vulkan_frag_shader_stage_create_info;
 
 
 EGLDisplay egl_display;
@@ -152,7 +159,7 @@ void load_image()
     cairo_destroy(cr);
 }
 
-GLuint load_shader(const char *shader_src, GLenum type)
+GLuint load_gl_shader(const char *shader_src, GLenum type)
 {
     GLuint shader;
     GLint compiled;
@@ -223,8 +230,8 @@ int init(GLuint *program_object)
     GLuint fragment_shader;
     GLint linked;
 
-    vertex_shader = load_shader(vertex_shader_str, GL_VERTEX_SHADER);
-    fragment_shader = load_shader(fragment_shader_str, GL_FRAGMENT_SHADER);
+    vertex_shader = load_gl_shader(vertex_shader_str, GL_VERTEX_SHADER);
+    fragment_shader = load_gl_shader(fragment_shader_str, GL_FRAGMENT_SHADER);
 
     *program_object = glCreateProgram();
     if (*program_object == 0) {
@@ -267,6 +274,19 @@ int init(GLuint *program_object)
 //===========
 // Vulkan
 //===========
+
+static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
+{
+    FILE *f = fopen(path, "rb");
+    fseek(f, 0, SEEK_END);
+    *size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    *code = (uint8_t*)malloc(sizeof(uint8_t) * *size);
+    fread(*code, *size, 1, f);
+
+    fclose(f);
+}
 
 static void init_vulkan()
 {
@@ -627,7 +647,56 @@ static void create_vulkan_image_views()
 
 static void create_vulkan_graphics_pipeline()
 {
-    //
+    VkResult result;
+
+    // Load shader codes.
+    load_shader("vert.spv", &vert_shader_code, &vert_shader_code_size);
+    load_shader("frag.spv", &frag_shader_code, &frag_shader_code_size);
+
+    // Create vertex shader module.
+    VkShaderModule vert_shader_module;
+
+    VkShaderModuleCreateInfo vert_create_info;
+    vert_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    vert_create_info.codeSize = vert_shader_code_size;
+    vert_create_info.pCode = (const uint32_t*)vert_shader_code;
+
+    result = vkCreateShaderModule(vulkan_device, &vert_create_info, NULL,
+        &vert_shader_module);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create vertex shader module!\n");
+        return;
+    }
+    fprintf(stderr, "Vertex shader module created.\n");
+
+    // Create fragment shader module.
+    VkShaderModule frag_shader_module;
+
+    VkShaderModuleCreateInfo frag_create_info;
+    frag_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    frag_create_info.codeSize = frag_shader_code_size;
+    frag_create_info.pCode = (const uint32_t*)frag_shader_code;
+
+    result = vkCreateShaderModule(vulkan_device, &frag_create_info, NULL,
+        &frag_shader_module);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create fragment shader module!\n");
+        return;
+    }
+    fprintf(stderr, "Fragment shader module created.\n");
+
+    // Write shader stage create infos.
+    vulkan_vert_shader_stage_create_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vulkan_vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vulkan_vert_shader_stage_create_info.module = vert_shader_module;
+    vulkan_vert_shader_stage_create_info.pName = "main";
+
+    vulkan_frag_shader_stage_create_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vulkan_frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    vulkan_frag_shader_stage_create_info.module = frag_shader_module;
+    vulkan_frag_shader_stage_create_info.pName = "main";
 }
 
 //===========
@@ -1042,6 +1111,7 @@ int main(int argc, char *argv[])
     create_vulkan_logical_device();
     create_vulkan_swapchain();
     create_vulkan_image_views();
+    create_vulkan_graphics_pipeline();
 
     wl_surface_commit(surface);
 
