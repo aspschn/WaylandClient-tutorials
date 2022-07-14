@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-client.h>
@@ -29,6 +30,16 @@ struct xdg_toplevel *xdg_toplevel = NULL;
 #define WINDOW_WIDTH 480
 #define WINDOW_HEIGHT 360
 
+// Vulkan validation layers.
+const char *validation_layers[] = {
+    "VK_LAYER_KHRONOS_validation",
+};
+#ifdef NDEBUG
+const bool enable_validation_layers = false;
+#else
+const bool enable_validation_layers = true;
+#endif
+VkLayerProperties *vulkan_layer_properties = NULL;
 // Vulkan init.
 VkInstance vulkan_instance = NULL;
 VkInstanceCreateInfo vulkan_instance_create_info;
@@ -253,6 +264,16 @@ int init(GLuint *program_object)
 static void init_vulkan()
 {
     VkResult result;
+
+    // Check validation layers.
+    uint32_t layers = 0;
+    result = vkEnumerateInstanceLayerProperties(&layers, NULL);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Layer properties failed!\n");
+        return;
+    }
+    fprintf(stderr, "Number of layers: %d\n", layers);
+
 
     // Check extensions.
     uint32_t extensions = 0;
@@ -486,7 +507,7 @@ static void create_vulkan_logical_device()
     }
 
     // Swap extent.
-    fprintf(stderr, "Current extent - %dx%d\n",
+    fprintf(stderr, "Current extent - %ux%u\n",
         vulkan_capabilities.currentExtent.width,
         vulkan_capabilities.currentExtent.height);
     fprintf(stderr, "Min image extent - %dx%d\n",
