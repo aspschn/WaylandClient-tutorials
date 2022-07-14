@@ -74,6 +74,7 @@ VkSwapchainKHR vulkan_swapchain = NULL;
 const char *device_extensions[] = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 };
+VkImage *vulkan_swapchain_images = NULL;
 
 
 EGLDisplay egl_display;
@@ -567,6 +568,22 @@ static void create_vulkan_swapchain()
         return;
     }
     fprintf(stderr, "Swapchain created!\n");
+
+    // Images.
+    uint32_t images;
+    vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images, NULL);
+    fprintf(stderr, "Number of images: %d\n", images);
+
+    vulkan_swapchain_images = (VkImage*)malloc(
+        sizeof(VkImage) * images
+    );
+    result = vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images,
+        vulkan_swapchain_images);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get swapchain images!\n");
+        return;
+    }
+    fprintf(stderr, "Swapchain images got.\n");
 }
 
 //===========
