@@ -50,6 +50,7 @@ VkWaylandSurfaceCreateInfoKHR vulkan_surface_create_info;
 uint32_t present_family = 0;
 VkQueue vulkan_present_queue = NULL;
 // Swap chain.
+uint32_t *queue_family_indices = NULL;
 VkSurfaceCapabilitiesKHR vulkan_capabilities;
 VkSurfaceFormatKHR *vulkan_formats = NULL;
 VkPresentModeKHR *vulkan_present_modes = NULL;
@@ -58,7 +59,7 @@ VkSurfaceFormatKHR vulkan_format;
 VkPresentModeKHR vulkan_present_mode;
 VkExtent2D vulkan_extent;
 VkSwapchainCreateInfoKHR vulkan_swapchain_create_info;
-VkSwapchainKHR vulkan_swapchain;
+VkSwapchainKHR vulkan_swapchain = NULL;
 
 
 EGLDisplay egl_display;
@@ -360,8 +361,9 @@ static void create_vulkan_logical_device()
         VkQueueFamilyProperties properties = *(vulkan_queue_families + i);
         fprintf(stderr, " - Queue count: %d\n", properties.queueCount);
         if (properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            fprintf(stderr, " -- Has queue graphics bit.\n");
+            fprintf(stderr, " -- Has queue graphics bit. index: %d\n", i);
             graphics_family = i;
+            continue;
         }
 
         // Presentation support.
@@ -376,9 +378,12 @@ static void create_vulkan_logical_device()
             fprintf(stderr, "Present not support!\n");
             return;
         }
-        fprintf(stderr, "Present support.\n");
+        fprintf(stderr, "Present support. index: %d\n", i);
         present_family = i;
     }
+    queue_family_indices = (uint32_t*)malloc(sizeof(uint32_t) * 2);
+    queue_family_indices[0] = graphics_family;
+    queue_family_indices[1] = present_family;
 
     vulkan_queue_create_infos = (VkDeviceQueueCreateInfo*)malloc(
         sizeof(VkDeviceQueueCreateInfo) * 2
@@ -443,8 +448,9 @@ static void create_vulkan_logical_device()
 
     for (uint32_t i = 0; i < formats; ++i) {
         VkSurfaceFormatKHR surface_format = *(vulkan_formats + i);
-        fprintf(stderr, " - Format: %s\n",
-            vk_format_to_string(surface_format.format));
+        fprintf(stderr, " - Format: %s, Color space: %d\n",
+            vk_format_to_string(surface_format.format),
+            surface_format.colorSpace);
         if (surface_format.format == VK_FORMAT_B8G8R8A8_SRGB) {
             vulkan_format = surface_format;
         }
@@ -512,10 +518,10 @@ static void create_vulkan_swapchain()
     vulkan_swapchain_create_info.imageArrayLayers = 1;
     vulkan_swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     if (graphics_family != present_family) {
-        fprintf(stderr, "SAME!\n");
+        fprintf(stderr, "NOT SAME!\n");
         vulkan_swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         vulkan_swapchain_create_info.queueFamilyIndexCount = 2;
-        vulkan_swapchain_create_info.pQueueFamilyIndices = NULL; // Do not null!
+        vulkan_swapchain_create_info.pQueueFamilyIndices = queue_family_indices;
     } else {
         vulkan_swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         vulkan_swapchain_create_info.queueFamilyIndexCount = 0;
