@@ -812,7 +812,8 @@ static void create_vulkan_framebuffers()
             fprintf(stderr, "Failed to create framebuffer.\n");
             return;
         }
-        fprintf(stderr, "Framebuffer created.\n");
+        fprintf(stderr, "Framebuffer created. - framebuffer: %p\n",
+            vulkan_framebuffers[i]);
     }
 }
 
@@ -850,7 +851,8 @@ static void create_vulkan_command_buffer()
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to allocate command buffers!\n");
     }
-    fprintf(stderr, "Command buffer allocated.\n");
+    fprintf(stderr, "Command buffer allocated. - command buffer: %p\n",
+        vulkan_command_buffer);
 }
 
 static void create_vulkan_sync_objects()
@@ -859,6 +861,8 @@ static void create_vulkan_sync_objects()
 
     VkSemaphoreCreateInfo semaphore_create_info;
     semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    semaphore_create_info.flags = 0;
+    semaphore_create_info.pNext = NULL;
 
     VkFenceCreateInfo fence_create_info;
     fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -918,6 +922,8 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     render_pass_begin_info.clearValueCount = 1;
     render_pass_begin_info.pClearValues = &clear_color;
 
+    fprintf(stderr, "vkCmdBeginRenderPass() - command buffer: %p\n",
+        command_buffer);
     vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
         VK_SUBPASS_CONTENTS_INLINE);
     fprintf(stderr, "Begin render pass.\n");
@@ -967,10 +973,15 @@ void draw_frame()
     vkResetFences(vulkan_device, 1, &vulkan_in_flight_fence);
 
     uint32_t image_index;
-    vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX,
+    result = vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX,
         vulkan_image_available_semaphore, VK_NULL_HANDLE, &image_index);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to acquire next image!\n");
+        return;
+    }
+    fprintf(stderr, "Acquired next image. - image index: %d\n", image_index);
 
-    vkResetCommandBuffer(vulkan_command_buffer, image_index);
+    vkResetCommandBuffer(vulkan_command_buffer, 0);
     record_command_buffer(vulkan_command_buffer, image_index);
 
     VkSubmitInfo submit_info;
