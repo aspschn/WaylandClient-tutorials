@@ -4,9 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-client.h>
-#include <wayland-egl.h>
-#include <EGL/egl.h>
-#include <GLES3/gl3.h>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_wayland.h>
@@ -121,12 +118,6 @@ VkRenderPassBeginInfo vulkan_render_pass_begin_info; // Unused.
 VkClearValue vulkan_clear_color;
 
 
-EGLDisplay egl_display;
-EGLConfig egl_conf;
-EGLSurface egl_surface;
-EGLContext egl_context;
-GLuint program_object;
-
 struct wl_subsurface *subsurface;
 
 uint32_t image_width;
@@ -191,118 +182,6 @@ void load_image()
 
     cairo_surface_destroy(cairo_surface);
     cairo_destroy(cr);
-}
-
-GLuint load_gl_shader(const char *shader_src, GLenum type)
-{
-    GLuint shader;
-    GLint compiled;
-
-    // Create the shader object.
-    shader = glCreateShader(type);
-    if (shader == 0) {
-        return 0;
-    }
-
-    // Load the shader source.
-    glShaderSource(shader, 1, &shader_src, NULL);
-
-    // Compile the shader.
-    glCompileShader(shader);
-
-    // Check the compile status.
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-    if (!compiled) {
-        GLint info_len = 0;
-
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
-        if (info_len > 1) {
-            char *info_log = malloc(sizeof(char));
-            glGetShaderInfoLog(shader, info_len, NULL, info_log);
-            fprintf(stderr, "Error compiling shader: %s\n", info_log);
-            free(info_log);
-        }
-
-        glDeleteShader(shader);
-        return 0;
-    }
-
-    return shader;
-}
-
-int init(GLuint *program_object)
-{
-    GLbyte vertex_shader_str[] =
-        "#version 300 es                \n"
-//        "attribute vec4 vPosition;      \n"
-        "layout (location = 0) in vec3 aPos;        \n"
-        "layout (location = 1) in vec3 aColor;      \n"
-        "layout (location = 2) in vec2 aTexCoord;   \n"
-        "out vec3 ourColor;             \n"
-        "out vec2 TexCoord;             \n"
-        "void main()                            \n"
-        "{                                      \n"
-        "    gl_Position = vec4(aPos, 1.0);     \n"
-        "    ourColor = aColor;                 \n"
-        "    TexCoord = aTexCoord;              \n"
-        "}                                      \n";
-
-    GLbyte fragment_shader_str[] =
-        "#version 300 es                \n"
-        "precision mediump float;       \n"
-        "out vec4 fragColor;            \n"
-        "in vec3 ourColor;              \n"
-        "in vec2 TexCoord;              \n"
-        "uniform sampler2D ourTexture;  \n"
-        "void main()                    \n"
-        "{                              \n"
-//        "    fragColor = texture(ourTexture, TexCoord) * vec4(ourColor, 1.0); \n"
-        "    fragColor = texture(ourTexture, TexCoord); \n"
-        "}                              \n";
-
-    GLuint vertex_shader;
-    GLuint fragment_shader;
-    GLint linked;
-
-    vertex_shader = load_gl_shader(vertex_shader_str, GL_VERTEX_SHADER);
-    fragment_shader = load_gl_shader(fragment_shader_str, GL_FRAGMENT_SHADER);
-
-    *program_object = glCreateProgram();
-    if (*program_object == 0) {
-        fprintf(stderr, "glCreateProgram() - program_object is 0\n");
-        return 0;
-    }
-
-    glAttachShader(*program_object, vertex_shader);
-    glAttachShader(*program_object, fragment_shader);
-
-    // Bind vPosition to attribute 0.
-//    glBindAttribLocation(*program_object, 0, "vPosition");
-
-    // Link the program.
-    glLinkProgram(*program_object);
-
-    // Check the link status.
-    glGetProgramiv(*program_object, GL_LINK_STATUS, &linked);
-    if (!linked) {
-        GLint info_len = 0;
-        glGetProgramiv(*program_object, GL_INFO_LOG_LENGTH, &info_len);
-        if (info_len > 1) {
-            char *info_log = malloc(sizeof(char) * info_len);
-
-            glGetProgramInfoLog(*program_object, info_len, NULL, info_log);
-            fprintf(stderr, "Error linking program: %s\n", info_log);
-            free(info_log);
-        }
-
-        glDeleteProgram(*program_object);
-        return 0;
-    }
-
-    load_image();
-
-    glClearColor(0.0f, 0.0f, 0.0f, 0.8f);
-    return 1;
 }
 
 //===========
@@ -1033,92 +912,6 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
 static void xdg_wm_base_ping_handler(void *data,
         struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 {
-    GLfloat vVertices[] = {
-         1.0f,  1.0f,  0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,     // top right
-         1.0f, -1.0f,  0.0f,    0.0f, 0.0f, 1.0f,   1.0f, 0.0f,     // bottom right
-        -1.0f, -1.0f,  0.0f,    0.0f, 0.0f, 1.0f,   0.0f, 0.0f,     // bottom left
-        -1.0f,  1.0f,  0.0f,    1.0f, 0.0f, 0.0f,   0.0f, 1.0f,     // top left
-    };
-    GLfloat tVertices[] = {
-        1.0f, 1.0f,
-        1.0f, 0.0f,
-        0.0f, 0.0f,
-        0.0f, 1.0f,
-    };
-    GLuint indices[] = {
-        0, 1, 3,    // first triangle
-        1, 2, 3,    // second triangle
-    };
-
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
-
-    // Set the viewport.
-    glViewport(0, 0, 128, 128);
-
-    // Clear the color buffer.
-    glClearColor(0.0, 0.0, 0.0, 0.8f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    // Use the program object.
-    glUseProgram(program_object);
-
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint ebo;
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vVertices), vVertices, GL_STATIC_DRAW);
-
-    // Position attribute.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute.
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-
-    GLuint t_vbo;
-    glGenBuffers(1, &t_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, t_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(tVertices), tVertices, GL_STATIC_DRAW);
-    // Texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(2);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        image_width,
-        image_height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        image_data
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glBindVertexArray(vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-
-    eglSwapBuffers(egl_display, egl_surface);
-
     xdg_wm_base_pong(xdg_wm_base, serial);
 }
 
@@ -1264,96 +1057,6 @@ static const struct wl_registry_listener registry_listener = {
     global_registry_remover
 };
 
-static void create_window()
-{
-    egl_window = wl_egl_window_create(surface, 480, 360);
-    if (egl_window == EGL_NO_SURFACE) {
-        fprintf(stderr, "Can't create egl window.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created egl window.\n");
-    }
-
-    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
-        NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
-        fprintf(stderr, "Made current.\n");
-    } else {
-        fprintf(stderr, "Made current failed.\n");
-    }
-
-    glClearColor(1.0, 1.0, 0.0, 0.5);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glFlush();
-
-    if (eglSwapBuffers(egl_display, egl_surface)) {
-        fprintf(stderr, "Swapped buffers.\n");
-    } else {
-        fprintf(stderr, "Swapped buffers failed.\n");
-    }
-}
-
-static void init_egl()
-{
-    EGLint major, minor, count, n, size;
-    EGLConfig *configs;
-    EGLint config_attribs[] = {
-        EGL_SURFACE_TYPE,
-        EGL_WINDOW_BIT,
-        EGL_RED_SIZE,
-        8,
-        EGL_GREEN_SIZE,
-        8,
-        EGL_BLUE_SIZE,
-        8,
-        EGL_ALPHA_SIZE,
-        8,
-        EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_ES2_BIT,
-        EGL_NONE,
-    };
-
-    static const EGLint context_attribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION,
-        2,
-        EGL_NONE,
-    };
-
-    egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (egl_display == EGL_NO_DISPLAY) {
-        fprintf(stderr, "Can't create egl display\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created egl display.\n");
-    }
-
-    if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
-        fprintf(stderr, "Can't initialise egl display.\n");
-        exit(1);
-    }
-    printf("EGL major: %d, minor %d\n", major, minor);
-
-    eglGetConfigs(egl_display, NULL, 0, &count);
-    printf("EGL has %d configs.\n", count);
-
-    configs = calloc(count, sizeof *configs);
-
-    eglChooseConfig(egl_display, config_attribs, configs, count, &n);
-
-    for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(egl_display, configs[i], EGL_BUFFER_SIZE, &size);
-        printf("Buffersize for config %d is %d\n", i, size);
-        eglGetConfigAttrib(egl_display, configs[i], EGL_RED_SIZE, &size);
-        printf("Red size for config %d is %d.\n", i, size);
-
-        // Just choose the first one.
-        egl_conf = configs[i];
-        break;
-    }
-
-    egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
-        context_attribs);
-}
 
 static void get_server_references()
 {
@@ -1427,12 +1130,15 @@ int main(int argc, char *argv[])
 
     wl_display_roundtrip(display);
 
+    /*
     // create_opaque_region();
     init_egl();
     create_window();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
+    */
+
     // Vulkan init.
     init_vulkan();
     create_vulkan_window();
