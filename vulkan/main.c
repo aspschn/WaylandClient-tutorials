@@ -78,6 +78,12 @@ VkImage *vulkan_swapchain_images = NULL;
 uint32_t vulkan_swapchain_images_length = 0;
 // Image views.
 VkImageView *vulkan_image_views = NULL;
+// Render pass.
+VkAttachmentDescription vulkan_attachment_description;
+VkAttachmentReference vulkan_attachment_reference;
+VkSubpassDescription vulkan_subpass_description;
+VkRenderPass vulkan_render_pass;
+VkRenderPassCreateInfo vulkan_render_pass_create_info;
 // Shaders.
 uint8_t *vert_shader_code = NULL;
 uint32_t vert_shader_code_size = 0;
@@ -657,7 +663,42 @@ static void create_vulkan_image_views()
         if (result != VK_SUCCESS) {
             fprintf(stderr, "Image view creation failed. index: %d\n", i);
         }
+        fprintf(stderr, "Image view created - image view: %p\n", image_view);
     }
+}
+
+static void create_vulkan_render_pass()
+{
+    VkResult result;
+
+    vulkan_attachment_description.format = vulkan_format.format;
+    vulkan_attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
+    vulkan_attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    vulkan_attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    vulkan_attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    vulkan_attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    vulkan_attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vulkan_attachment_description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    vulkan_attachment_reference.attachment = 0;
+    vulkan_attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    vulkan_subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    vulkan_subpass_description.colorAttachmentCount = 1;
+    vulkan_subpass_description.pColorAttachments = &vulkan_attachment_reference;
+
+    vulkan_render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    vulkan_render_pass_create_info.attachmentCount = 1;
+    vulkan_render_pass_create_info.pAttachments = &vulkan_attachment_description;
+    vulkan_render_pass_create_info.subpassCount = 1;
+    vulkan_render_pass_create_info.pSubpasses = &vulkan_subpass_description;
+
+    result = vkCreateRenderPass(vulkan_device, &vulkan_render_pass_create_info,
+        NULL, &vulkan_render_pass);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create render pass!\n");
+    }
+    fprintf(stderr, "Render pass created.\n");
 }
 
 static void create_vulkan_graphics_pipeline()
@@ -1209,6 +1250,7 @@ int main(int argc, char *argv[])
     create_vulkan_logical_device();
     create_vulkan_swapchain();
     create_vulkan_image_views();
+    create_vulkan_render_pass();
     create_vulkan_graphics_pipeline();
 
     wl_surface_commit(surface);
