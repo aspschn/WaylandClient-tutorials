@@ -81,6 +81,7 @@ VkAttachmentReference vulkan_attachment_reference;
 VkSubpassDescription vulkan_subpass_description;
 VkRenderPass vulkan_render_pass;
 VkRenderPassCreateInfo vulkan_render_pass_create_info;
+VkSubpassDependency vulkan_dependency;
 // Shaders.
 uint8_t *vert_shader_code = NULL;
 uint32_t vert_shader_code_size = 0;
@@ -115,7 +116,11 @@ VkCommandBufferAllocateInfo vulkan_command_buffer_allocate_info;
 VkCommandBuffer vulkan_command_buffer = NULL;
 VkCommandBufferBeginInfo vulkan_command_buffer_begin_info; // Unused.
 VkRenderPassBeginInfo vulkan_render_pass_begin_info; // Unused.
-VkClearValue vulkan_clear_color;
+VkClearValue vulkan_clear_color; // Unused.
+// Sync objects.
+VkSemaphore vulkan_image_available_semaphore = NULL;
+VkSemaphore vulkan_render_finished_semaphore = NULL;
+VkFence vulkan_in_flight_fence = NULL;
 
 
 struct wl_subsurface *subsurface;
@@ -579,11 +584,21 @@ static void create_vulkan_render_pass()
     vulkan_subpass_description.colorAttachmentCount = 1;
     vulkan_subpass_description.pColorAttachments = &vulkan_attachment_reference;
 
+    // Subpass dependency.
+    vulkan_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    vulkan_dependency.dstSubpass = 0;
+    vulkan_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    vulkan_dependency.srcStageMask = 0;
+    vulkan_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    vulkan_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
     vulkan_render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     vulkan_render_pass_create_info.attachmentCount = 1;
     vulkan_render_pass_create_info.pAttachments = &vulkan_attachment_description;
     vulkan_render_pass_create_info.subpassCount = 1;
     vulkan_render_pass_create_info.pSubpasses = &vulkan_subpass_description;
+    vulkan_render_pass_create_info.dependencyCount = 1;
+    vulkan_render_pass_create_info.pDependencies = &vulkan_dependency;
 
     result = vkCreateRenderPass(vulkan_device, &vulkan_render_pass_create_info,
         NULL, &vulkan_render_pass);
@@ -838,6 +853,41 @@ static void create_vulkan_command_buffer()
     fprintf(stderr, "Command buffer allocated.\n");
 }
 
+static void create_vulkan_sync_objects()
+{
+    VkResult result;
+
+    VkSemaphoreCreateInfo semaphore_create_info;
+    semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_create_info;
+    fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_create_info.pNext = NULL;
+    fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    result = vkCreateSemaphore(vulkan_device, &semaphore_create_info,
+        NULL, &vulkan_image_available_semaphore);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create image available semaphore!\n");
+        return;
+    }
+    fprintf(stderr, "Image available semaphore created.\n");
+    result = vkCreateSemaphore(vulkan_device, &semaphore_create_info,
+        NULL, &vulkan_render_finished_semaphore);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create render finished semaphore!\n");
+        return;
+    }
+    fprintf(stderr, "Render finished semaphore created.\n");
+    result = vkCreateFence(vulkan_device, &fence_create_info,
+        NULL, &vulkan_in_flight_fence);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create fence!\n");
+        return;
+    }
+    fprintf(stderr, "Fence created.\n");
+}
+
 static void record_command_buffer(VkCommandBuffer command_buffer,
         uint32_t image_index)
 {
@@ -870,6 +920,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
 
     vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
         VK_SUBPASS_CONTENTS_INLINE);
+    fprintf(stderr, "Begin render pass.\n");
 
     //==============
     // In Commands
@@ -904,6 +955,67 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
         fprintf(stderr, "Failed to record command buffer!\n");
         return;
     }
+    fprintf(stderr, "End command buffer.\n");
+}
+
+void draw_frame()
+{
+    VkResult result;
+
+    vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fence,
+        VK_TRUE, UINT64_MAX);
+    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fence);
+
+    uint32_t image_index;
+    vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX,
+        vulkan_image_available_semaphore, VK_NULL_HANDLE, &image_index);
+
+    vkResetCommandBuffer(vulkan_command_buffer, image_index);
+    record_command_buffer(vulkan_command_buffer, image_index);
+
+    VkSubmitInfo submit_info;
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] = {
+        vulkan_image_available_semaphore,
+    };
+    VkPipelineStageFlags wait_stages[] = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+    };
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = wait_semaphores;
+    submit_info.pWaitDstStageMask = wait_stages;
+
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &vulkan_command_buffer;
+
+    VkSemaphore signal_semaphores[] = {
+        vulkan_render_finished_semaphore,
+    };
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = signal_semaphores;
+
+    result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
+        vulkan_in_flight_fence);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to submit draw command buffer!\n");
+        return;
+    }
+
+    VkPresentInfoKHR present_info;
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swapchains[] = {
+        vulkan_swapchain,
+    };
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+
+    present_info.pImageIndices = &image_index;
+
+    vkQueuePresentKHR(vulkan_present_queue, &present_info);
 }
 
 //===========
@@ -1150,6 +1262,9 @@ int main(int argc, char *argv[])
     create_vulkan_framebuffers();
     create_vulkan_command_pool();
     create_vulkan_command_buffer();
+    create_vulkan_sync_objects();
+
+    draw_frame();
 
     wl_surface_commit(surface);
 
