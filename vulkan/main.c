@@ -60,7 +60,7 @@ VkSurfaceKHR vulkan_surface = NULL;
 VkWaylandSurfaceCreateInfoKHR vulkan_surface_create_info;
 uint32_t present_family = 0;
 VkQueue vulkan_present_queue = NULL;
-// Swap chain.
+// Swapchain.
 uint32_t *queue_family_indices = NULL;
 VkSurfaceCapabilitiesKHR vulkan_capabilities;
 VkSurfaceFormatKHR *vulkan_formats = NULL;
@@ -108,6 +108,17 @@ VkPipelineLayoutCreateInfo vulkan_layout_create_info;
 VkPipelineLayout vulkan_layout = NULL;
 VkGraphicsPipelineCreateInfo vulkan_graphics_pipeline_create_info;
 VkPipeline vulkan_graphics_pipeline = NULL;
+// Framebuffers.
+VkFramebuffer *vulkan_framebuffers = NULL;
+// Command pool.
+VkCommandPoolCreateInfo vulkan_command_pool_create_info;
+VkCommandPool vulkan_command_pool = NULL;
+// Command buffer.
+VkCommandBufferAllocateInfo vulkan_command_buffer_allocate_info;
+VkCommandBuffer vulkan_command_buffer = NULL;
+VkCommandBufferBeginInfo vulkan_command_buffer_begin_info; // Unused.
+VkRenderPassBeginInfo vulkan_render_pass_begin_info; // Unused.
+VkClearValue vulkan_clear_color;
 
 
 EGLDisplay egl_display;
@@ -879,6 +890,143 @@ static void create_vulkan_graphics_pipeline()
     */
 }
 
+static void create_vulkan_framebuffers()
+{
+    VkResult result;
+
+    vulkan_framebuffers = (VkFramebuffer*)malloc(
+        sizeof(VkFramebuffer) * vulkan_swapchain_images_length
+    );
+
+    for (uint32_t i = 0; i < vulkan_swapchain_images_length; ++i) {
+        VkImageView attachments[] = {
+            vulkan_image_views[i],
+        };
+
+        VkFramebufferCreateInfo create_info;
+        create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        create_info.renderPass = vulkan_render_pass;
+        create_info.attachmentCount = 1;
+        create_info.pAttachments = attachments;
+        create_info.width = vulkan_extent.width;
+        create_info.height = vulkan_extent.height;
+        create_info.layers = 1;
+
+        result = vkCreateFramebuffer(vulkan_device, &create_info, NULL,
+            (vulkan_framebuffers + i));
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create framebuffer.\n");
+            return;
+        }
+        fprintf(stderr, "Framebuffer created.\n");
+    }
+}
+
+static void create_vulkan_command_pool()
+{
+    VkResult result;
+
+    vulkan_command_pool_create_info.sType =
+        VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    vulkan_command_pool_create_info.flags =
+        VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    vulkan_command_pool_create_info.queueFamilyIndex = graphics_family;
+
+    result = vkCreateCommandPool(vulkan_device,
+        &vulkan_command_pool_create_info, NULL, &vulkan_command_pool);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create command pool!\n");
+        return;
+    }
+    fprintf(stderr, "Command pool created.\n");
+}
+
+static void create_vulkan_command_buffer()
+{
+    VkResult result;
+
+    vulkan_command_buffer_allocate_info.sType =
+        VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    vulkan_command_buffer_allocate_info.commandPool = vulkan_command_pool;
+    vulkan_command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vulkan_command_buffer_allocate_info.commandBufferCount = 1;
+
+    result = vkAllocateCommandBuffers(vulkan_device,
+        &vulkan_command_buffer_allocate_info, &vulkan_command_buffer);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to allocate command buffers!\n");
+    }
+    fprintf(stderr, "Command buffer allocated.\n");
+}
+
+static void record_command_buffer(VkCommandBuffer command_buffer,
+        uint32_t image_index)
+{
+    VkResult result;
+
+    VkCommandBufferBeginInfo command_buffer_begin_info;
+    command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    command_buffer_begin_info.flags = 0;
+    command_buffer_begin_info.pInheritanceInfo = NULL;
+
+    result = vkBeginCommandBuffer(command_buffer,
+        &command_buffer_begin_info);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to begin recording command buffer!\n");
+        return;
+    }
+    fprintf(stderr, "Begin command buffer.\n");
+
+    VkRenderPassBeginInfo render_pass_begin_info;
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.renderPass = vulkan_render_pass;
+    render_pass_begin_info.framebuffer = vulkan_framebuffers[image_index];
+    render_pass_begin_info.renderArea.offset.x = 0;
+    render_pass_begin_info.renderArea.offset.y = 0;
+    render_pass_begin_info.renderArea.extent = vulkan_extent;
+
+    VkClearValue clear_color = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
+    render_pass_begin_info.clearValueCount = 1;
+    render_pass_begin_info.pClearValues = &clear_color;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+        VK_SUBPASS_CONTENTS_INLINE);
+
+    //==============
+    // In Commands
+    //==============
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vulkan_graphics_pipeline);
+
+    VkViewport viewport;
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)vulkan_extent.width;
+    viewport.height = (float)vulkan_extent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+    VkRect2D scissor;
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent = vulkan_extent;
+    vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    //===============
+    // Out Commands
+    //===============
+
+    vkCmdEndRenderPass(command_buffer);
+
+    result = vkEndCommandBuffer(command_buffer);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to record command buffer!\n");
+        return;
+    }
+}
+
 //===========
 // XDG
 //===========
@@ -1293,6 +1441,9 @@ int main(int argc, char *argv[])
     create_vulkan_image_views();
     create_vulkan_render_pass();
     create_vulkan_graphics_pipeline();
+    create_vulkan_framebuffers();
+    create_vulkan_command_pool();
+    create_vulkan_command_buffer();
 
     wl_surface_commit(surface);
 
