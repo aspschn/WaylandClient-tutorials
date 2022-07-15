@@ -588,7 +588,7 @@ static void create_vulkan_render_pass()
     vulkan_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     vulkan_dependency.dstSubpass = 0;
     vulkan_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    vulkan_dependency.srcStageMask = 0;
+    vulkan_dependency.srcAccessMask = 0;
     vulkan_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     vulkan_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
