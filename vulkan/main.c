@@ -91,7 +91,7 @@ uint8_t *frag_shader_code = NULL;
 uint32_t frag_shader_code_size = 0;
 VkPipelineShaderStageCreateInfo vulkan_vert_shader_stage_create_info;
 VkPipelineShaderStageCreateInfo vulkan_frag_shader_stage_create_info;
-VkPipelineShaderStageCreateInfo vulkan_shader_stage_create_info;
+VkPipelineShaderStageCreateInfo *vulkan_shader_stage_create_infos = NULL;
 VkPipelineVertexInputStateCreateInfo vulkan_vert_input_state_create_info;
 VkPipelineInputAssemblyStateCreateInfo vulkan_input_assembly_state_create_info;
 VkPipelineViewportStateCreateInfo vulkan_viewport_state_create_info;
@@ -106,6 +106,8 @@ VkDynamicState dynamic_states[] = {
 VkPipelineDynamicStateCreateInfo vulkan_dynamic_state_create_info;
 VkPipelineLayoutCreateInfo vulkan_layout_create_info;
 VkPipelineLayout vulkan_layout = NULL;
+VkGraphicsPipelineCreateInfo vulkan_graphics_pipeline_create_info;
+VkPipeline vulkan_graphics_pipeline = NULL;
 
 
 EGLDisplay egl_display;
@@ -698,7 +700,8 @@ static void create_vulkan_render_pass()
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create render pass!\n");
     }
-    fprintf(stderr, "Render pass created.\n");
+    fprintf(stderr, "Render pass created. - render pass: %p\n",
+        vulkan_render_pass);
 }
 
 static void create_vulkan_graphics_pipeline()
@@ -755,7 +758,11 @@ static void create_vulkan_graphics_pipeline()
     vulkan_frag_shader_stage_create_info.pName = "main";
 
     // Shader stage.
-    vulkan_shader_stage_create_info;
+    vulkan_shader_stage_create_infos = (VkPipelineShaderStageCreateInfo*)malloc(
+        sizeof(VkPipelineShaderStageCreateInfo) * 2
+    );
+    *(vulkan_shader_stage_create_infos + 0) = vulkan_vert_shader_stage_create_info;
+    *(vulkan_shader_stage_create_infos + 1) = vulkan_frag_shader_stage_create_info;
 
     // Vertex input.
     vulkan_vert_input_state_create_info.sType =
@@ -815,10 +822,10 @@ static void create_vulkan_graphics_pipeline()
     vulkan_color_blend_state_create_info.blendConstants[3] = 0.0f;
 
     // Dynamic states.
-    VkPipelineDynamicStateCreateInfo create_info;
-    create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    create_info.dynamicStateCount = 2;
-    create_info.pDynamicStates = dynamic_states;
+    vulkan_dynamic_state_create_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    vulkan_dynamic_state_create_info.dynamicStateCount = 2;
+    vulkan_dynamic_state_create_info.pDynamicStates = dynamic_states;
 
     // Layout.
     vulkan_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -829,8 +836,42 @@ static void create_vulkan_graphics_pipeline()
         &vulkan_layout_create_info, NULL, &vulkan_layout);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create pipeline layout!\n");
+        return;
     }
     fprintf(stderr, "Pipeline layout created.\n");
+
+    vulkan_graphics_pipeline_create_info.sType =
+        VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    vulkan_graphics_pipeline_create_info.stageCount = 2;
+    vulkan_graphics_pipeline_create_info.pStages = vulkan_shader_stage_create_infos;
+    vulkan_graphics_pipeline_create_info.pVertexInputState =
+        &vulkan_vert_input_state_create_info;
+    vulkan_graphics_pipeline_create_info.pInputAssemblyState =
+        &vulkan_input_assembly_state_create_info;
+    vulkan_graphics_pipeline_create_info.pViewportState =
+        &vulkan_viewport_state_create_info;
+    vulkan_graphics_pipeline_create_info.pRasterizationState =
+        &vulkan_rasterization_state_create_info;
+    vulkan_graphics_pipeline_create_info.pMultisampleState =
+        &vulkan_multisample_state_create_info;
+    vulkan_graphics_pipeline_create_info.pColorBlendState =
+        &vulkan_color_blend_state_create_info;
+    vulkan_graphics_pipeline_create_info.pDynamicState =
+        &vulkan_dynamic_state_create_info;
+    vulkan_graphics_pipeline_create_info.layout = vulkan_layout;
+    vulkan_graphics_pipeline_create_info.renderPass = vulkan_render_pass;
+    vulkan_graphics_pipeline_create_info.subpass = 0;
+    vulkan_graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
+
+    result = vkCreateGraphicsPipelines(vulkan_device, VK_NULL_HANDLE,
+        1, &vulkan_graphics_pipeline_create_info, NULL,
+        &vulkan_graphics_pipeline);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create graphics pipeline!\n");
+        return;
+    }
+    fprintf(stderr, "Graphics pipeline created - pipeline: %p\n",
+        vulkan_graphics_pipeline);
 
     /*
     vkDestroyShaderModule(vulkan_device, frag_shader_module, NULL);
