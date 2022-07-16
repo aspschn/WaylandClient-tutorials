@@ -368,8 +368,8 @@ static void create_vulkan_logical_device()
 
     // Logical device.
     vulkan_device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    vulkan_device_create_info.pQueueCreateInfos = vulkan_queue_create_infos;
     vulkan_device_create_info.queueCreateInfoCount = 1;
+    vulkan_device_create_info.pQueueCreateInfos = vulkan_queue_create_infos;
     vulkan_device_create_info.pEnabledFeatures = &vulkan_device_features;
     vulkan_device_create_info.enabledExtensionCount = 1;
     vulkan_device_create_info.ppEnabledExtensionNames = device_extensions;
