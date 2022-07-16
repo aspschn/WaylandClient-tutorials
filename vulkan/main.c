@@ -115,8 +115,8 @@ VkCommandPool vulkan_command_pool = NULL;
 VkCommandBufferAllocateInfo vulkan_command_buffer_allocate_info;
 VkCommandBuffer vulkan_command_buffer = NULL;
 VkCommandBufferBeginInfo vulkan_command_buffer_begin_info; // Unused.
-VkRenderPassBeginInfo vulkan_render_pass_begin_info; // Unused.
-VkClearValue vulkan_clear_color; // Unused.
+VkRenderPassBeginInfo vulkan_render_pass_begin_info;
+VkClearValue vulkan_clear_color;
 // Sync objects.
 VkSemaphore vulkan_image_available_semaphore = NULL;
 VkSemaphore vulkan_render_finished_semaphore = NULL;
@@ -909,22 +909,26 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
         return;
     }
     fprintf(stderr, "Begin command buffer.\n");
+    fprintf(stderr, "Using framebuffer: %p\n", vulkan_framebuffers[image_index]);
 
-    VkRenderPassBeginInfo render_pass_begin_info;
-    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_begin_info.renderPass = vulkan_render_pass;
-    render_pass_begin_info.framebuffer = vulkan_framebuffers[image_index];
-    render_pass_begin_info.renderArea.offset.x = 0;
-    render_pass_begin_info.renderArea.offset.y = 0;
-    render_pass_begin_info.renderArea.extent = vulkan_extent;
+    vulkan_render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    vulkan_render_pass_begin_info.renderPass = vulkan_render_pass;
+    vulkan_render_pass_begin_info.framebuffer = vulkan_framebuffers[image_index];
+    vulkan_render_pass_begin_info.renderArea.offset.x = 0;
+    vulkan_render_pass_begin_info.renderArea.offset.y = 0;
+    vulkan_render_pass_begin_info.renderArea.extent = vulkan_extent;
 
-    VkClearValue clear_color = {{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
-    render_pass_begin_info.clearValueCount = 1;
-    render_pass_begin_info.pClearValues = &clear_color;
+    vulkan_clear_color.color.float32[0] = 0.0f;
+    vulkan_clear_color.color.float32[1] = 0.0f;
+    vulkan_clear_color.color.float32[2] = 0.0f;
+    vulkan_clear_color.color.float32[3] = 1.0f;
+
+    vulkan_render_pass_begin_info.clearValueCount = 1;
+    vulkan_render_pass_begin_info.pClearValues = &vulkan_clear_color;
 
     fprintf(stderr, "vkCmdBeginRenderPass() - command buffer: %p\n",
         command_buffer);
-    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+    vkCmdBeginRenderPass(command_buffer, &vulkan_render_pass_begin_info,
         VK_SUBPASS_CONTENTS_INLINE);
     fprintf(stderr, "Begin render pass.\n");
 
