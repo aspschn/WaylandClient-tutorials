@@ -563,6 +563,9 @@ static void create_vulkan_image_views()
         create_info.subresourceRange.baseArrayLayer = 0;
         create_info.subresourceRange.layerCount = 1;
 
+        create_info.flags = 0;
+        create_info.pNext = NULL;
+
         result = vkCreateImageView(vulkan_device, &create_info, NULL,
             &image_view);
         if (result != VK_SUCCESS) {
@@ -632,6 +635,8 @@ static void create_vulkan_graphics_pipeline()
     vert_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     vert_create_info.codeSize = vert_shader_code_size;
     vert_create_info.pCode = (const uint32_t*)vert_shader_code;
+    vert_create_info.flags = 0;
+    vert_create_info.pNext = NULL;
 
     result = vkCreateShaderModule(vulkan_device, &vert_create_info, NULL,
         &vert_shader_module);
@@ -648,6 +653,8 @@ static void create_vulkan_graphics_pipeline()
     frag_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     frag_create_info.codeSize = frag_shader_code_size;
     frag_create_info.pCode = (const uint32_t*)frag_shader_code;
+    frag_create_info.flags = 0;
+    frag_create_info.pNext = NULL;
 
     result = vkCreateShaderModule(vulkan_device, &frag_create_info, NULL,
         &frag_shader_module);
@@ -813,6 +820,8 @@ static void create_vulkan_framebuffers()
         create_info.width = vulkan_extent.width;
         create_info.height = vulkan_extent.height;
         create_info.layers = 1;
+        create_info.flags = 0;
+        create_info.pNext = NULL;
 
         result = vkCreateFramebuffer(vulkan_device, &create_info, NULL,
             (vulkan_framebuffers + i));
@@ -841,7 +850,8 @@ static void create_vulkan_command_pool()
         fprintf(stderr, "Failed to create command pool!\n");
         return;
     }
-    fprintf(stderr, "Command pool created.\n");
+    fprintf(stderr, "Command pool created. - command pool: %p\n",
+        vulkan_command_pool);
 }
 
 static void create_vulkan_command_buffer()
@@ -909,6 +919,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     command_buffer_begin_info.flags = 0;
     command_buffer_begin_info.pInheritanceInfo = NULL;
+    command_buffer_begin_info.pNext = NULL;
 
     result = vkBeginCommandBuffer(command_buffer,
         &command_buffer_begin_info);
