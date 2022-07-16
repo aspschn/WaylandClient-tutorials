@@ -329,7 +329,7 @@ static void create_vulkan_logical_device()
         if (properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             fprintf(stderr, " -- Has queue graphics bit. index: %d\n", i);
             graphics_family = i;
-            continue;
+//            continue;
         }
 
         // Presentation support.
@@ -340,16 +340,18 @@ static void create_vulkan_logical_device()
             fprintf(stderr, "Error!\n");
             return;
         }
-        if (present_support != VK_TRUE) {
-            fprintf(stderr, "Present not support!\n");
-            return;
+        if (present_support == VK_TRUE) {
+            fprintf(stderr, "Present support. index: %d\n", i);
+            present_family = i;
+            break;
         }
-        fprintf(stderr, "Present support. index: %d\n", i);
-        present_family = i;
     }
     queue_family_indices = (uint32_t*)malloc(sizeof(uint32_t) * 2);
     queue_family_indices[0] = graphics_family;
     queue_family_indices[1] = present_family;
+    fprintf(stderr, "[DEBUG] graphics/present queue family indices: %d, %d\n",
+        graphics_family,
+        present_family);
 
     vulkan_queue_create_infos = (VkDeviceQueueCreateInfo*)malloc(
         sizeof(VkDeviceQueueCreateInfo) * 2
@@ -360,17 +362,23 @@ static void create_vulkan_logical_device()
     vulkan_queue_create_infos[0].queueFamilyIndex = graphics_family;
     vulkan_queue_create_infos[0].queueCount = 1;
     vulkan_queue_create_infos[0].pQueuePriorities = &queue_priority;
+    vulkan_queue_create_infos[0].flags = 0;
+    vulkan_queue_create_infos[0].pNext = NULL;
 
     vulkan_queue_create_infos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     vulkan_queue_create_infos[1].queueFamilyIndex = present_family;
     vulkan_queue_create_infos[1].queueCount = 1;
     vulkan_queue_create_infos[1].pQueuePriorities = &queue_priority;
+    vulkan_queue_create_infos[1].flags = 0;
+    vulkan_queue_create_infos[1].pNext = NULL;
 
     // Logical device.
     vulkan_device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    vulkan_device_create_info.queueCreateInfoCount = 1;
+    vulkan_device_create_info.queueCreateInfoCount = 2;
     vulkan_device_create_info.pQueueCreateInfos = vulkan_queue_create_infos;
+
     vulkan_device_create_info.pEnabledFeatures = &vulkan_device_features;
+
     vulkan_device_create_info.enabledExtensionCount = 1;
     vulkan_device_create_info.ppEnabledExtensionNames = device_extensions;
     vulkan_device_create_info.enabledLayerCount = 0;
@@ -1175,7 +1183,7 @@ int main(int argc, char *argv[])
     create_vulkan_command_buffer();
     create_vulkan_sync_objects();
 
-    // draw_frame();
+    draw_frame();
 
     wl_surface_commit(surface);
 
