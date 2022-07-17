@@ -46,13 +46,13 @@ VkPhysicalDevice vulkan_physical_device = VK_NULL_HANDLE;
 VkPhysicalDevice *vulkan_physical_devices = NULL;
 VkQueueFamilyProperties *vulkan_queue_families = NULL;
 uint32_t graphics_family = 0;
-VkDevice vulkan_device = NULL;
 VkDeviceQueueCreateInfo *vulkan_queue_create_infos = NULL;
 float queue_priority = 1.0f;
 VkPhysicalDeviceFeatures vulkan_device_features;
-VkDeviceCreateInfo vulkan_device_create_info;
 VkQueue vulkan_graphics_queue = NULL;
 // Logical device.
+VkDeviceCreateInfo vulkan_device_create_info;
+VkDevice vulkan_device = NULL;
 // Vulkan surface.
 VkSurfaceKHR vulkan_surface = NULL;
 VkWaylandSurfaceCreateInfoKHR vulkan_surface_create_info;
