@@ -1,0 +1,6 @@
+a.out
+*.pro.user
+xdg-shell.h
+xdg-shell.c
+*.spv
+*.o
