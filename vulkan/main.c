@@ -556,8 +556,6 @@ static void create_vulkan_image_views()
         sizeof(VkImageView) * vulkan_swapchain_images_length
     );
     for (uint32_t i = 0; i < vulkan_swapchain_images_length; ++i) {
-        VkImageView image_view = *(vulkan_image_views + i);
-
         VkImageViewCreateInfo create_info;
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         create_info.image = vulkan_swapchain_images[i];
@@ -579,11 +577,11 @@ static void create_vulkan_image_views()
         create_info.pNext = NULL;
 
         result = vkCreateImageView(vulkan_device, &create_info, NULL,
-            &image_view);
+            &vulkan_image_views[i]);
         if (result != VK_SUCCESS) {
             fprintf(stderr, "Image view creation failed. index: %d\n", i);
         }
-        fprintf(stderr, "Image view created - image view: %p\n", image_view);
+        fprintf(stderr, "Image view created - image view: %p\n", vulkan_image_views[i]);
     }
 }
 
