@@ -1039,6 +1039,9 @@ void draw_frame()
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
 
+    // Set zero or null.
+    submit_info.pNext = NULL;
+
     result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
         vulkan_in_flight_fence);
     if (result != VK_SUCCESS) {
@@ -1058,6 +1061,9 @@ void draw_frame()
     present_info.pSwapchains = swapchains;
 
     present_info.pImageIndices = &image_index;
+
+    // Set zero or null.
+    present_info.pNext = NULL;
 
     vkQueuePresentKHR(vulkan_present_queue, &present_info);
 }
