@@ -52,6 +52,7 @@ float queue_priority = 1.0f;
 VkPhysicalDeviceFeatures vulkan_device_features;
 VkDeviceCreateInfo vulkan_device_create_info;
 VkQueue vulkan_graphics_queue = NULL;
+// Logical device.
 // Vulkan surface.
 VkSurfaceKHR vulkan_surface = NULL;
 VkWaylandSurfaceCreateInfoKHR vulkan_surface_create_info;
@@ -381,7 +382,12 @@ static void create_vulkan_logical_device()
 
     vulkan_device_create_info.enabledExtensionCount = 1;
     vulkan_device_create_info.ppEnabledExtensionNames = device_extensions;
+
+    // Zero or null.
     vulkan_device_create_info.enabledLayerCount = 0;
+    vulkan_device_create_info.ppEnabledLayerNames = NULL;
+    vulkan_device_create_info.flags = 0;
+    vulkan_device_create_info.pNext = NULL;
 
     result = vkCreateDevice(vulkan_physical_device, &vulkan_device_create_info,
         NULL, &vulkan_device);
@@ -404,6 +410,8 @@ static void create_vulkan_logical_device()
         fprintf(stderr, "Failed to get surface capabilities!\n");
         return;
     }
+    fprintf(stderr, "Physical device surface capabilities. - transform: %d\n",
+        vulkan_capabilities.currentTransform);
 
     uint32_t formats;
     vkGetPhysicalDeviceSurfaceFormatsKHR(vulkan_physical_device,
@@ -520,7 +528,11 @@ static void create_vulkan_swapchain()
 
     // Images.
     uint32_t images;
-    vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images, NULL);
+    result = vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images, NULL);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get number of swapchain images!\n");
+        return;
+    }
     fprintf(stderr, "Number of images: %d\n", images);
 
     vulkan_swapchain_images = (VkImage*)malloc(
