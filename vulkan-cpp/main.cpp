@@ -16,11 +16,12 @@
 #include "xdg-shell.h"
 
 #include "vulkan/instance.h"
+#include "vulkan/surface.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_subcompositor *subcompositor = NULL;
-struct wl_surface *surface;
+struct wl_surface *wl_surface;
 struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_output *output;
@@ -54,8 +55,6 @@ VkQueue vulkan_graphics_queue = NULL;
 VkDeviceCreateInfo vulkan_device_create_info;
 VkDevice vulkan_device = NULL;
 // Vulkan surface.
-VkSurfaceKHR vulkan_surface = NULL;
-VkWaylandSurfaceCreateInfoKHR vulkan_surface_create_info;
 uint32_t present_family = 0;
 VkQueue vulkan_present_queue = NULL;
 // Swapchain.
@@ -207,26 +206,8 @@ static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
     fclose(f);
 }
 
-static void create_vulkan_window(std::shared_ptr<vk::Instance> instance)
-{
-    VkResult result;
-
-    vulkan_surface_create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
-    vulkan_surface_create_info.pNext = NULL;
-    vulkan_surface_create_info.display = display;
-    vulkan_surface_create_info.surface = surface;
-
-    result = vkCreateWaylandSurfaceKHR(instance->vk_instance(),
-        &vulkan_surface_create_info, NULL, &vulkan_surface);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create window surface! result: %d\n",
-            result);
-        return;
-    }
-    fprintf(stderr, "Vulkan surface created.\n");
-}
-
-static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
+static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance,
+        std::shared_ptr<vk::Surface> surface)
 {
     VkResult result;
 
@@ -254,7 +235,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
         // Presentation support.
         VkBool32 present_support = VK_FALSE;
         result = vkGetPhysicalDeviceSurfaceSupportKHR(instance->vk_physical_device(),
-            i, vulkan_surface, &present_support);
+            i, surface->vk_surface(), &present_support);
         if (result != VK_SUCCESS) {
             fprintf(stderr, "Error!\n");
             return;
@@ -323,7 +304,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
 
     // Querying details of swap chain support.
     result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(instance->vk_physical_device(),
-        vulkan_surface,
+        surface->vk_surface(),
         &vulkan_capabilities);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to get surface capabilities!\n");
@@ -334,14 +315,14 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
 
     uint32_t formats;
     vkGetPhysicalDeviceSurfaceFormatsKHR(instance->vk_physical_device(),
-        vulkan_surface, &formats, NULL);
+        surface->vk_surface(), &formats, NULL);
     fprintf(stderr, "Surface formats: %d\n", formats);
 
     vulkan_formats = (VkSurfaceFormatKHR*)malloc(
         sizeof(VkSurfaceFormatKHR) * formats
     );
     result = vkGetPhysicalDeviceSurfaceFormatsKHR(instance->vk_physical_device(),
-        vulkan_surface, &formats, vulkan_formats);
+        surface->vk_surface(), &formats, vulkan_formats);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to get surface formats!\n");
         return;
@@ -359,7 +340,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
 
     uint32_t modes;
     vkGetPhysicalDeviceSurfacePresentModesKHR(instance->vk_physical_device(),
-        vulkan_surface, &modes, NULL);
+        surface->vk_surface(), &modes, NULL);
     if (modes == 0) {
         fprintf(stderr, "No surface present modes!\n");
         return;
@@ -371,7 +352,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
     );
 
     result = vkGetPhysicalDeviceSurfacePresentModesKHR(instance->vk_physical_device(),
-        vulkan_surface, &modes, vulkan_present_modes);
+        surface->vk_surface(), &modes, vulkan_present_modes);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to get surface present modes!\n");
         return;
@@ -401,7 +382,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance)
     vulkan_extent.height = WINDOW_HEIGHT;
 }
 
-static void create_vulkan_swapchain()
+static void create_vulkan_swapchain(std::shared_ptr<vk::Surface> surface)
 {
     VkResult result;
 
@@ -412,7 +393,7 @@ static void create_vulkan_swapchain()
     fprintf(stderr, "Image count: %d\n", image_count);
 
     vulkan_swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    vulkan_swapchain_create_info.surface = vulkan_surface;
+    vulkan_swapchain_create_info.surface = surface->vk_surface();
     vulkan_swapchain_create_info.minImageCount = image_count;
     vulkan_swapchain_create_info.imageFormat = vulkan_format.format;
     vulkan_swapchain_create_info.imageColorSpace = vulkan_format.colorSpace;
@@ -1090,14 +1071,14 @@ int main(int argc, char *argv[])
     }
 
     // Check surface.
-    surface = wl_compositor_create_surface(compositor);
-    if (surface == NULL) {
+    wl_surface = wl_compositor_create_surface(compositor);
+    if (wl_surface == NULL) {
         fprintf(stderr, "Can't create surface.\n");
         exit(1);
     }
 
     // Check xdg surface.
-    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
+    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, wl_surface);
     if (xdg_surface == NULL) {
         fprintf(stderr, "Can't create xdg surface.\n");
         exit(1);
@@ -1112,16 +1093,17 @@ int main(int argc, char *argv[])
 
 
     // MUST COMMIT! or not working on weston.
-    wl_surface_commit(surface);
+    wl_surface_commit(wl_surface);
 
     wl_display_roundtrip(display);
 
     // Vulkan init.
     auto instance = std::make_shared<vk::Instance>();
+    // Vulkan surface.
+    auto surface = std::make_shared<vk::Surface>(instance, display, wl_surface);
 
-    create_vulkan_window(instance);
-    create_vulkan_logical_device(instance);
-    create_vulkan_swapchain();
+    create_vulkan_logical_device(instance, surface);
+    create_vulkan_swapchain(surface);
     create_vulkan_image_views();
     create_vulkan_render_pass();
     create_vulkan_graphics_pipeline();
@@ -1132,7 +1114,7 @@ int main(int argc, char *argv[])
 
     draw_frame();
 
-    wl_surface_commit(surface);
+    wl_surface_commit(wl_surface);
 
     int res = wl_display_dispatch(display);
     fprintf(stderr, "Initial dispatch.\n");
