@@ -590,6 +590,8 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     fprintf(stderr, "vkQueuePresentKHR() - queue: %p\n", device->present_queue());
     vkQueuePresentKHR(device->present_queue(), &present_info);
     fprintf(stderr, " - Called.\n");
+
+    current_frame += (current_frame + 1) & MAX_FRAMES_IN_FLIGHT;
 }
 
 //===========
