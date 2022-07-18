@@ -756,6 +756,8 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Initial dispatch.\n");
     while (res != -1) {
         res = wl_display_dispatch(display);
+        fprintf(stderr, "wl_display_dispatch() called.\n");
+        draw_frame(device, swapchain);
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);
 

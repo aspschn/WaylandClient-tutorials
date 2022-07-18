@@ -92,6 +92,7 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
     create_info.presentMode = this->_present_mode;
     create_info.clipped = VK_TRUE;
     create_info.oldSwapchain = VK_NULL_HANDLE;
+    create_info.pNext = NULL;
     fprintf(stderr, "Done writing swapchain create info.\n");
 
     result = vkCreateSwapchainKHR(device->vk_device(),
