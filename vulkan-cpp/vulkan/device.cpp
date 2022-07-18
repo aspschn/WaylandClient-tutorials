@@ -171,4 +171,19 @@ Device::Device(std::shared_ptr<Instance> instance,
         &this->_present_queue);
 }
 
+VkDevice Device::vk_device()
+{
+    return this->_vk_device;
+}
+
+uint32_t Device::graphics_queue_family_index() const
+{
+    return this->_queue_families.graphics_family_index();
+}
+
+uint32_t Device::present_queue_family_index() const
+{
+    return this->_queue_families.present_family_index();
+}
+
 } // namespace vk

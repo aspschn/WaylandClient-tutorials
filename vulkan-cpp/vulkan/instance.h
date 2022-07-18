@@ -22,6 +22,12 @@ public:
     VkSurfaceCapabilitiesKHR surface_capabilities(
             VkSurfaceKHR vk_surface) const;
 
+    std::vector<VkSurfaceFormatKHR> surface_formats(
+            VkSurfaceKHR vk_surface) const;
+
+    std::vector<VkPresentModeKHR> present_modes(
+            VkSurfaceKHR vk_surface) const;
+
 private:
     VkInstance _vk_instance;
     const char* *_vk_extension_names;

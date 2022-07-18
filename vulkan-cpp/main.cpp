@@ -18,6 +18,7 @@
 #include "vulkan/instance.h"
 #include "vulkan/surface.h"
 #include "vulkan/device.h"
+#include "vulkan/swapchain.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -130,40 +131,6 @@ uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
 
-static const char* vk_format_to_string(VkFormat format)
-{
-    switch (format) {
-    case VK_FORMAT_R5G6B5_UNORM_PACK16:
-        return "VK_FORMAT_R5G6B5_UNORM_PACK16";
-    case VK_FORMAT_R8G8B8A8_UNORM:
-        return "VK_FORMAT_R8G8B8A8_UNORM";
-    case VK_FORMAT_R8G8B8A8_SRGB:
-        return "VK_FORMAT_R8G8B8A8_SRGB";
-    case VK_FORMAT_B8G8R8A8_UNORM:
-        return "VK_FORMAT_B8G8R8A8_UNORM";
-    case VK_FORMAT_B8G8R8A8_SRGB:
-        return "VK_FORMAT_B8G8R8A8_SRGB";
-    case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
-        return "VK_FORMAT_A2R10G10B10_UNORM_PACK32";
-    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
-        return "VK_FORMAT_A2B10G10R10_UNORM_PACK32";
-    default:
-        return "Unknown";
-    }
-}
-
-static const char* vk_present_mode_to_string(VkPresentModeKHR mode)
-{
-    switch (mode) {
-    case VK_PRESENT_MODE_MAILBOX_KHR:
-        return "VK_PRESENT_MODE_MAILBOX_KHR";
-    case VK_PRESENT_MODE_FIFO_KHR:
-        return "VK_PRESENT_MODE_FIFO_KHR";
-    default:
-        return "Unknown";
-    }
-}
-
 void load_image()
 {
     cairo_surface_t *cairo_surface = cairo_image_surface_create_from_png(
@@ -212,130 +179,11 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance,
     VkResult result;
 
     ///////////////////////////////////
-
-    // Querying details of swap chain support.
-    result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(instance->vk_physical_device(),
-        surface->vk_surface(),
-        &vulkan_capabilities);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get surface capabilities!\n");
-        return;
-    }
-    fprintf(stderr, "Physical device surface capabilities. - transform: %d\n",
-        vulkan_capabilities.currentTransform);
-
-    uint32_t formats;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(instance->vk_physical_device(),
-        surface->vk_surface(), &formats, NULL);
-    fprintf(stderr, "Surface formats: %d\n", formats);
-
-    vulkan_formats = (VkSurfaceFormatKHR*)malloc(
-        sizeof(VkSurfaceFormatKHR) * formats
-    );
-    result = vkGetPhysicalDeviceSurfaceFormatsKHR(instance->vk_physical_device(),
-        surface->vk_surface(), &formats, vulkan_formats);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get surface formats!\n");
-        return;
-    }
-
-    for (uint32_t i = 0; i < formats; ++i) {
-        VkSurfaceFormatKHR surface_format = *(vulkan_formats + i);
-        fprintf(stderr, " - Format: %s, Color space: %d\n",
-            vk_format_to_string(surface_format.format),
-            surface_format.colorSpace);
-        if (surface_format.format == VK_FORMAT_B8G8R8A8_SRGB) {
-            vulkan_format = surface_format;
-        }
-    }
-
-    uint32_t modes;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(instance->vk_physical_device(),
-        surface->vk_surface(), &modes, NULL);
-    if (modes == 0) {
-        fprintf(stderr, "No surface present modes!\n");
-        return;
-    }
-    fprintf(stderr, "Surface present modes: %d\n", modes);
-
-    vulkan_present_modes = (VkPresentModeKHR*)malloc(
-        sizeof(VkPresentModeKHR) * modes
-    );
-
-    result = vkGetPhysicalDeviceSurfacePresentModesKHR(instance->vk_physical_device(),
-        surface->vk_surface(), &modes, vulkan_present_modes);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get surface present modes!\n");
-        return;
-    }
-
-    for (uint32_t i = 0; i < modes; ++i) {
-        VkPresentModeKHR present_mode = *(vulkan_present_modes + i);
-        fprintf(stderr, " - Present mode: %s\n",
-            vk_present_mode_to_string(present_mode));
-        if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-            vulkan_present_mode = present_mode;
-        }
-    }
-
-    // Swap extent.
-    fprintf(stderr, "Current extent - %ux%u\n",
-        vulkan_capabilities.currentExtent.width,
-        vulkan_capabilities.currentExtent.height);
-    fprintf(stderr, "Min image extent - %dx%d\n",
-        vulkan_capabilities.minImageExtent.width,
-        vulkan_capabilities.minImageExtent.height);
-    fprintf(stderr, "Max image extent - %dx%d\n",
-        vulkan_capabilities.maxImageExtent.width,
-        vulkan_capabilities.maxImageExtent.height);
-
-    vulkan_extent.width = WINDOW_WIDTH;
-    vulkan_extent.height = WINDOW_HEIGHT;
 }
 
 static void create_vulkan_swapchain(std::shared_ptr<vk::Surface> surface)
 {
     VkResult result;
-
-    fprintf(stderr, "Capabilities min, max image count: %d, %d\n",
-        vulkan_capabilities.minImageCount,
-        vulkan_capabilities.maxImageCount);
-    uint32_t image_count = vulkan_capabilities.minImageCount + 1;
-    fprintf(stderr, "Image count: %d\n", image_count);
-
-    vulkan_swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    vulkan_swapchain_create_info.surface = surface->vk_surface();
-    vulkan_swapchain_create_info.minImageCount = image_count;
-    vulkan_swapchain_create_info.imageFormat = vulkan_format.format;
-    vulkan_swapchain_create_info.imageColorSpace = vulkan_format.colorSpace;
-    vulkan_swapchain_create_info.imageExtent = vulkan_extent;
-    vulkan_swapchain_create_info.imageArrayLayers = 1;
-    vulkan_swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (graphics_family != present_family) {
-        fprintf(stderr, "NOT SAME!\n");
-        vulkan_swapchain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-        vulkan_swapchain_create_info.queueFamilyIndexCount = 2;
-        vulkan_swapchain_create_info.pQueueFamilyIndices = queue_family_indices;
-    } else {
-        vulkan_swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        vulkan_swapchain_create_info.queueFamilyIndexCount = 0;
-        vulkan_swapchain_create_info.pQueueFamilyIndices = NULL;
-    }
-    vulkan_swapchain_create_info.preTransform = vulkan_capabilities.currentTransform;
-    // ?? No alpha?
-    vulkan_swapchain_create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    vulkan_swapchain_create_info.presentMode = vulkan_present_mode;
-    vulkan_swapchain_create_info.clipped = VK_TRUE;
-    vulkan_swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
-    fprintf(stderr, "Done writing swapchain create info.\n");
-
-    result = vkCreateSwapchainKHR(vulkan_device,
-        &vulkan_swapchain_create_info, NULL, &vulkan_swapchain);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create swapchain!\n");
-        return;
-    }
-    fprintf(stderr, "Swapchain created!\n");
 
     // Images.
     uint32_t images;
@@ -1014,9 +862,10 @@ int main(int argc, char *argv[])
     auto surface = std::make_shared<vk::Surface>(instance, display, wl_surface);
     // Logical device.
     auto device = std::make_shared<vk::Device>(instance, surface);
+    // Swapchain.
+    auto swapchain = std::make_shared<vk::Swapchain>(instance, surface, device,
+        WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    create_vulkan_logical_device(instance, surface);
-    create_vulkan_swapchain(surface);
     create_vulkan_image_views();
     create_vulkan_render_pass();
     create_vulkan_graphics_pipeline();

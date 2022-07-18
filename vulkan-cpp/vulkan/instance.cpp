@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "utils.h"
+
 namespace vk {
 
 Instance::Instance()
@@ -127,6 +129,82 @@ VkSurfaceCapabilitiesKHR Instance::surface_capabilities(
     }
 
     return capabilities;
+}
+
+std::vector<VkSurfaceFormatKHR> Instance::surface_formats(
+        VkSurfaceKHR vk_surface) const
+{
+    VkResult result;
+
+    std::vector<VkSurfaceFormatKHR> v;
+
+    uint32_t formats;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(this->_vk_physical_device,
+        vk_surface, &formats, NULL);
+    fprintf(stderr, "Surface formats: %d\n", formats);
+
+    auto surface_formats = new VkSurfaceFormatKHR[formats];
+    result = vkGetPhysicalDeviceSurfaceFormatsKHR(this->_vk_physical_device,
+        vk_surface, &formats, surface_formats);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "[WARN] Failed to get surface formats!\n");
+        delete[] surface_formats;
+
+        return v;
+    }
+
+    for (uint32_t i = 0; i < formats; ++i) {
+        VkSurfaceFormatKHR surface_format = surface_formats[i];
+        fprintf(stderr, " - Format: %s, Color space: %d\n",
+            vk_format_to_string(surface_format.format),
+            surface_format.colorSpace);
+        v.push_back(surface_format);
+    }
+
+    delete[] surface_formats;
+
+    return v;
+}
+
+std::vector<VkPresentModeKHR> Instance::present_modes(
+        VkSurfaceKHR vk_surface) const
+{
+    VkResult result;
+
+    std::vector<VkPresentModeKHR> v;
+
+    uint32_t modes;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(this->_vk_physical_device,
+        vk_surface, &modes, NULL);
+    if (modes == 0) {
+        fprintf(stderr, "No surface present modes!\n");
+        return v;
+    }
+    fprintf(stderr, "Surface present modes: %d\n", modes);
+
+    auto present_modes = new VkPresentModeKHR[modes];
+
+    result = vkGetPhysicalDeviceSurfacePresentModesKHR(
+        this->_vk_physical_device,
+        vk_surface,
+        &modes, present_modes);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get surface present modes!\n");
+        delete[] present_modes;
+
+        return v;
+    }
+
+    for (uint32_t i = 0; i < modes; ++i) {
+        VkPresentModeKHR present_mode = present_modes[i];
+        fprintf(stderr, " - Present mode: %s\n",
+            vk_present_mode_to_string(present_mode));
+        v.push_back(present_mode);
+    }
+
+    delete[] present_modes;
+
+    return v;
 }
 
 } // namespace vk

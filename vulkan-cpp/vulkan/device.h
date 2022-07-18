@@ -42,6 +42,11 @@ public:
     Device(std::shared_ptr<Instance> instance,
             std::shared_ptr<Surface> surface);
 
+    VkDevice vk_device();
+
+    uint32_t graphics_queue_family_index() const;
+    uint32_t present_queue_family_index() const;
+
 private:
     VkDevice _vk_device;
     QueueFamilies _queue_families;
