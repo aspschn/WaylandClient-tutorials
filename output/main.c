@@ -22,11 +22,16 @@ struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface = NULL;
 struct xdg_toplevel *xdg_toplevel = NULL;
 
-EGLDisplay egl_display;
-EGLConfig egl_conf;
-EGLSurface egl_surface;
-EGLContext egl_context;
-GLuint program_object;
+struct EglObject {
+    EGLDisplay egl_display;
+    EGLConfig egl_conf;
+    EGLSurface egl_surface;
+    EGLContext egl_context;
+    GLuint program_object;
+};
+
+struct EglObject egl_object;
+struct EglObject egl_object2;
 
 struct wl_surface *surface2;
 struct wl_egl_window *egl_window2;
@@ -198,7 +203,8 @@ static void xdg_wm_base_ping_handler(void *data,
         1, 2, 3,    // second triangle
     };
 
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+    eglMakeCurrent(egl_object.egl_display, egl_object.egl_surface,
+        egl_object.egl_surface, egl_object.egl_context);
 
     // Set the viewport.
     glViewport(0, 0, 128, 128);
@@ -207,7 +213,7 @@ static void xdg_wm_base_ping_handler(void *data,
     glClearColor(0.0, 0.0, 0.0, 0.8f);
     glClear(GL_COLOR_BUFFER_BIT);
     // Use the program object.
-    glUseProgram(program_object);
+    glUseProgram(egl_object2.program_object);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -265,7 +271,7 @@ static void xdg_wm_base_ping_handler(void *data,
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
-    eglSwapBuffers(egl_display, egl_surface);
+    eglSwapBuffers(egl_object.egl_display, egl_object.egl_surface);
 
     xdg_wm_base_pong(xdg_wm_base, serial);
 }
@@ -422,9 +428,10 @@ static void create_window()
         fprintf(stderr, "Created egl window.\n");
     }
 
-    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
+    egl_object.egl_surface = eglCreateWindowSurface(egl_object.egl_display,
+        egl_object.egl_conf, egl_window,
         NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
+    if (eglMakeCurrent(egl_object.egl_display, egl_object.egl_surface, egl_object.egl_surface, egl_object.egl_context)) {
         fprintf(stderr, "Made current.\n");
     } else {
         fprintf(stderr, "Made current failed.\n");
@@ -434,7 +441,7 @@ static void create_window()
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
-    if (eglSwapBuffers(egl_display, egl_surface)) {
+    if (eglSwapBuffers(egl_object.egl_display, egl_object.egl_surface)) {
         fprintf(stderr, "Swapped buffers.\n");
     } else {
         fprintf(stderr, "Swapped buffers failed.\n");
@@ -448,9 +455,9 @@ static void create_window2()
         exit(1);
     }
 
-    egl_surface2 = eglCreateWindowSurface(egl_display, egl_conf,
+    egl_surface2 = eglCreateWindowSurface(egl_object2.egl_display, egl_object2.egl_conf,
         egl_window2, NULL);
-    if (eglMakeCurrent(egl_display, egl_surface2, egl_surface2, egl_context)) {
+    if (eglMakeCurrent(egl_object2.egl_display, egl_surface2, egl_surface2, egl_object2.egl_context)) {
         fprintf(stderr, "Made current for egl_surface2.\n");
     }
 
@@ -458,12 +465,12 @@ static void create_window2()
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
-    if (eglSwapBuffers(egl_display, egl_surface2)) {
+    if (eglSwapBuffers(egl_object2.egl_display, egl_surface2)) {
         fprintf(stderr, "Swapped buffers for egl_surface2.\n");
     }
 }
 
-static void init_egl()
+static void init_egl(struct EglObject *egl_object)
 {
     EGLint major, minor, count, n, size;
     EGLConfig *configs;
@@ -489,39 +496,41 @@ static void init_egl()
         EGL_NONE,
     };
 
-    egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (egl_display == EGL_NO_DISPLAY) {
+    egl_object->egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    if (egl_object->egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
         exit(1);
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
 
-    if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
+    if (eglInitialize(egl_object->egl_display, &major, &minor) != EGL_TRUE) {
         fprintf(stderr, "Can't initialise egl display.\n");
         exit(1);
     }
     printf("EGL major: %d, minor %d\n", major, minor);
 
-    eglGetConfigs(egl_display, NULL, 0, &count);
+    eglGetConfigs(egl_object->egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
     configs = calloc(count, sizeof *configs);
 
-    eglChooseConfig(egl_display, config_attribs, configs, count, &n);
+    eglChooseConfig(egl_object->egl_display, config_attribs, configs, count, &n);
 
     for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(egl_display, configs[i], EGL_BUFFER_SIZE, &size);
+        eglGetConfigAttrib(egl_object->egl_display, configs[i], EGL_BUFFER_SIZE, &size);
         printf("Buffersize for config %d is %d\n", i, size);
-        eglGetConfigAttrib(egl_display, configs[i], EGL_RED_SIZE, &size);
+        eglGetConfigAttrib(egl_object->egl_display, configs[i], EGL_RED_SIZE, &size);
         printf("Red size for config %d is %d.\n", i, size);
 
         // Just choose the first one.
-        egl_conf = configs[i];
+        egl_object->egl_conf = configs[i];
         break;
     }
 
-    egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
+    egl_object->egl_context = eglCreateContext(
+        egl_object->egl_display,
+        egl_object->egl_conf, EGL_NO_CONTEXT,
         context_attribs);
 }
 
@@ -603,14 +612,20 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(display);
 
     // create_opaque_region();
-    init_egl();
+    init_egl(&egl_object);
     create_window();
-    if (init(&program_object) == 0) {
+    if (init(&egl_object.program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
+    init_egl(&egl_object2);
     create_window2();
+    if (init(&egl_object2.program_object) == 0) {
+        fprintf(stderr, "Error init2!\n");
+    }
 
-    wl_surface_commit(surface);
+    fprintf(stderr, "program. first: %d, second: %d\n", egl_object.program_object, egl_object2.program_object);
+
+//    wl_surface_commit(surface);
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
