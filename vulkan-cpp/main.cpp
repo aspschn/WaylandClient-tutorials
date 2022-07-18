@@ -45,25 +45,9 @@ const bool enable_validation_layers = true;
 #endif
 VkLayerProperties *vulkan_layer_properties = NULL;
 
-const char* *vulkan_extension_names = NULL;
-VkQueueFamilyProperties *vulkan_queue_families = NULL;
-uint32_t graphics_family = 0;
-VkDeviceQueueCreateInfo *vulkan_queue_create_infos = NULL;
-float queue_priority = 1.0f;
-VkPhysicalDeviceFeatures vulkan_device_features;
-VkQueue vulkan_graphics_queue = NULL;
 // Logical device.
-VkDeviceCreateInfo vulkan_device_create_info;
-VkDevice vulkan_device = NULL;
 // Vulkan surface.
-uint32_t present_family = 0;
-VkQueue vulkan_present_queue = NULL;
 // Swapchain.
-uint32_t *queue_family_indices = NULL;
-VkSurfaceCapabilitiesKHR vulkan_capabilities;
-VkSurfaceFormatKHR *vulkan_formats = NULL;
-VkPresentModeKHR *vulkan_present_modes = NULL;
-const char* *vulkan_required_extension_names = NULL; // Not used.
 VkSurfaceFormatKHR vulkan_format;
 VkPresentModeKHR vulkan_present_mode;
 VkExtent2D vulkan_extent;
@@ -173,53 +157,23 @@ static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
     fclose(f);
 }
 
-static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance,
-        std::shared_ptr<vk::Surface> surface)
+static void create_vulkan_image_views(
+        std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::Swapchain> swapchain)
 {
     VkResult result;
 
-    ///////////////////////////////////
-}
-
-static void create_vulkan_swapchain(std::shared_ptr<vk::Surface> surface)
-{
-    VkResult result;
-
-    // Images.
-    uint32_t images;
-    result = vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images, NULL);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get number of swapchain images!\n");
-        return;
-    }
-    fprintf(stderr, "Number of images: %d\n", images);
-
-    vulkan_swapchain_images = (VkImage*)malloc(
-        sizeof(VkImage) * images
-    );
-    result = vkGetSwapchainImagesKHR(vulkan_device, vulkan_swapchain, &images,
-        vulkan_swapchain_images);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get swapchain images!\n");
-        return;
-    }
-    fprintf(stderr, "Swapchain images got.\n");
-    vulkan_swapchain_images_length = images;
-}
-
-static void create_vulkan_image_views()
-{
-    VkResult result;
+    auto images = swapchain->images();
 
     vulkan_image_views = (VkImageView*)malloc(
-        sizeof(VkImageView) * vulkan_swapchain_images_length
+        sizeof(VkImageView) * images.size()
     );
     for (uint32_t i = 0; i < vulkan_swapchain_images_length; ++i) {
         VkImageViewCreateInfo create_info;
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image = vulkan_swapchain_images[i];
+        create_info.image = images[i];
         create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format = vulkan_format.format;
+        create_info.format = swapchain->surface_format().format;
 
         create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -235,7 +189,7 @@ static void create_vulkan_image_views()
         create_info.flags = 0;
         create_info.pNext = NULL;
 
-        result = vkCreateImageView(vulkan_device, &create_info, NULL,
+        result = vkCreateImageView(device->vk_device(), &create_info, NULL,
             &vulkan_image_views[i]);
         if (result != VK_SUCCESS) {
             fprintf(stderr, "Image view creation failed. index: %d\n", i);
@@ -244,7 +198,7 @@ static void create_vulkan_image_views()
     }
 }
 
-static void create_vulkan_render_pass()
+static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -280,7 +234,7 @@ static void create_vulkan_render_pass()
     vulkan_render_pass_create_info.dependencyCount = 1;
     vulkan_render_pass_create_info.pDependencies = &vulkan_dependency;
 
-    result = vkCreateRenderPass(vulkan_device, &vulkan_render_pass_create_info,
+    result = vkCreateRenderPass(device->vk_device(), &vulkan_render_pass_create_info,
         NULL, &vulkan_render_pass);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create render pass!\n");
@@ -289,7 +243,7 @@ static void create_vulkan_render_pass()
         vulkan_render_pass);
 }
 
-static void create_vulkan_graphics_pipeline()
+static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -307,7 +261,7 @@ static void create_vulkan_graphics_pipeline()
     vert_create_info.flags = 0;
     vert_create_info.pNext = NULL;
 
-    result = vkCreateShaderModule(vulkan_device, &vert_create_info, NULL,
+    result = vkCreateShaderModule(device->vk_device(), &vert_create_info, NULL,
         &vert_shader_module);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create vertex shader module!\n");
@@ -325,7 +279,7 @@ static void create_vulkan_graphics_pipeline()
     frag_create_info.flags = 0;
     frag_create_info.pNext = NULL;
 
-    result = vkCreateShaderModule(vulkan_device, &frag_create_info, NULL,
+    result = vkCreateShaderModule(device->vk_device(), &frag_create_info, NULL,
         &frag_shader_module);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create fragment shader module!\n");
@@ -421,7 +375,7 @@ static void create_vulkan_graphics_pipeline()
     vulkan_layout_create_info.setLayoutCount = 0;
     vulkan_layout_create_info.pushConstantRangeCount = 0;
 
-    result = vkCreatePipelineLayout(vulkan_device,
+    result = vkCreatePipelineLayout(device->vk_device(),
         &vulkan_layout_create_info, NULL, &vulkan_layout);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create pipeline layout!\n");
@@ -452,7 +406,7 @@ static void create_vulkan_graphics_pipeline()
     vulkan_graphics_pipeline_create_info.subpass = 0;
     vulkan_graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
 
-    result = vkCreateGraphicsPipelines(vulkan_device, VK_NULL_HANDLE,
+    result = vkCreateGraphicsPipelines(device->vk_device(), VK_NULL_HANDLE,
         1, &vulkan_graphics_pipeline_create_info, NULL,
         &vulkan_graphics_pipeline);
     if (result != VK_SUCCESS) {
@@ -468,7 +422,7 @@ static void create_vulkan_graphics_pipeline()
     */
 }
 
-static void create_vulkan_framebuffers()
+static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -492,7 +446,7 @@ static void create_vulkan_framebuffers()
         create_info.flags = 0;
         create_info.pNext = NULL;
 
-        result = vkCreateFramebuffer(vulkan_device, &create_info, NULL,
+        result = vkCreateFramebuffer(device->vk_device(), &create_info, NULL,
             (vulkan_framebuffers + i));
         if (result != VK_SUCCESS) {
             fprintf(stderr, "Failed to create framebuffer.\n");
@@ -503,7 +457,7 @@ static void create_vulkan_framebuffers()
     }
 }
 
-static void create_vulkan_command_pool()
+static void create_vulkan_command_pool(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -511,9 +465,10 @@ static void create_vulkan_command_pool()
         VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     vulkan_command_pool_create_info.flags =
         VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    vulkan_command_pool_create_info.queueFamilyIndex = graphics_family;
+    vulkan_command_pool_create_info.queueFamilyIndex =
+        device->graphics_queue_family_index();
 
-    result = vkCreateCommandPool(vulkan_device,
+    result = vkCreateCommandPool(device->vk_device(),
         &vulkan_command_pool_create_info, NULL, &vulkan_command_pool);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create command pool!\n");
@@ -523,7 +478,7 @@ static void create_vulkan_command_pool()
         vulkan_command_pool);
 }
 
-static void create_vulkan_command_buffer()
+static void create_vulkan_command_buffer(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -533,7 +488,7 @@ static void create_vulkan_command_buffer()
     vulkan_command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vulkan_command_buffer_allocate_info.commandBufferCount = 1;
 
-    result = vkAllocateCommandBuffers(vulkan_device,
+    result = vkAllocateCommandBuffers(device->vk_device(),
         &vulkan_command_buffer_allocate_info, &vulkan_command_buffer);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to allocate command buffers!\n");
@@ -542,7 +497,7 @@ static void create_vulkan_command_buffer()
         vulkan_command_buffer);
 }
 
-static void create_vulkan_sync_objects()
+static void create_vulkan_sync_objects(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
@@ -556,21 +511,21 @@ static void create_vulkan_sync_objects()
     fence_create_info.pNext = NULL;
     fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    result = vkCreateSemaphore(vulkan_device, &semaphore_create_info,
+    result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
         NULL, &vulkan_image_available_semaphore);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create image available semaphore!\n");
         return;
     }
     fprintf(stderr, "Image available semaphore created.\n");
-    result = vkCreateSemaphore(vulkan_device, &semaphore_create_info,
+    result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
         NULL, &vulkan_render_finished_semaphore);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create render finished semaphore!\n");
         return;
     }
     fprintf(stderr, "Render finished semaphore created.\n");
-    result = vkCreateFence(vulkan_device, &fence_create_info,
+    result = vkCreateFence(device->vk_device(), &fence_create_info,
         NULL, &vulkan_in_flight_fence);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to create fence!\n");
@@ -656,16 +611,16 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     fprintf(stderr, "End command buffer.\n");
 }
 
-void draw_frame()
+void draw_frame(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
-    vkWaitForFences(vulkan_device, 1, &vulkan_in_flight_fence,
+    vkWaitForFences(device->vk_device(), 1, &vulkan_in_flight_fence,
         VK_TRUE, UINT64_MAX);
-    vkResetFences(vulkan_device, 1, &vulkan_in_flight_fence);
+    vkResetFences(device->vk_device(), 1, &vulkan_in_flight_fence);
 
     uint32_t image_index;
-    result = vkAcquireNextImageKHR(vulkan_device, vulkan_swapchain, UINT64_MAX,
+    result = vkAcquireNextImageKHR(device->vk_device(), vulkan_swapchain, UINT64_MAX,
         vulkan_image_available_semaphore, VK_NULL_HANDLE, &image_index);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to acquire next image!\n");
@@ -701,7 +656,7 @@ void draw_frame()
     // Set zero or null.
     submit_info.pNext = NULL;
 
-    result = vkQueueSubmit(vulkan_graphics_queue, 1, &submit_info,
+    result = vkQueueSubmit(device->graphics_queue(), 1, &submit_info,
         vulkan_in_flight_fence);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to submit draw command buffer!\n");
@@ -724,7 +679,7 @@ void draw_frame()
     // Set zero or null.
     present_info.pNext = NULL;
 
-    vkQueuePresentKHR(vulkan_present_queue, &present_info);
+    vkQueuePresentKHR(device->present_queue(), &present_info);
 }
 
 //===========
@@ -866,15 +821,15 @@ int main(int argc, char *argv[])
     auto swapchain = std::make_shared<vk::Swapchain>(instance, surface, device,
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    create_vulkan_image_views();
-    create_vulkan_render_pass();
-    create_vulkan_graphics_pipeline();
-    create_vulkan_framebuffers();
-    create_vulkan_command_pool();
-    create_vulkan_command_buffer();
-    create_vulkan_sync_objects();
+    create_vulkan_image_views(device, swapchain);
+    create_vulkan_render_pass(device);
+    create_vulkan_graphics_pipeline(device);
+    create_vulkan_framebuffers(device);
+    create_vulkan_command_pool(device);
+    create_vulkan_command_buffer(device);
+    create_vulkan_sync_objects(device);
 
-    draw_frame();
+    draw_frame(device);
 
     wl_surface_commit(wl_surface);
 

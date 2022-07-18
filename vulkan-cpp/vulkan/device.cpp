@@ -2,6 +2,7 @@
 
 // C
 #include <stdio.h>
+#include <string.h>
 
 #include "instance.h"
 #include "surface.h"
@@ -77,6 +78,7 @@ Device::Device(std::shared_ptr<Instance> instance,
     this->_queue_priority = 1.0f;
     this->_graphics_queue = nullptr;
     this->_present_queue = nullptr;
+    memset(&this->_enabled_features, 0, sizeof(VkPhysicalDeviceFeatures));
 
     VkResult result;
 
@@ -184,6 +186,16 @@ uint32_t Device::graphics_queue_family_index() const
 uint32_t Device::present_queue_family_index() const
 {
     return this->_queue_families.present_family_index();
+}
+
+VkQueue Device::graphics_queue() const
+{
+    return this->_graphics_queue;
+}
+
+VkQueue Device::present_queue() const
+{
+    return this->_present_queue;
 }
 
 } // namespace vk

@@ -47,6 +47,9 @@ public:
     uint32_t graphics_queue_family_index() const;
     uint32_t present_queue_family_index() const;
 
+    VkQueue graphics_queue() const;
+    VkQueue present_queue() const;
+
 private:
     VkDevice _vk_device;
     QueueFamilies _queue_families;

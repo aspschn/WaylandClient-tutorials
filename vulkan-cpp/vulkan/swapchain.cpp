@@ -101,11 +101,49 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
     fprintf(stderr, "Swapchain created!\n");
 
     delete[] queue_family_indices;
+
+    // Create images.
+    uint32_t images;
+    result = vkGetSwapchainImagesKHR(device->vk_device(),
+        this->_vk_swapchain, &images, NULL);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get number of swapchain images!\n");
+        return;
+    }
+    fprintf(stderr, "Number of images: %d\n", images);
+
+    auto swapchain_images = new VkImage[images];
+    result = vkGetSwapchainImagesKHR(device->vk_device(),
+        this->_vk_swapchain, &images, swapchain_images);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get swapchain images!\n");
+        delete[] swapchain_images;
+
+        return;
+    }
+    fprintf(stderr, "Swapchain images got.\n");
+    this->_image_count = images;
+
+    for (uint32_t i = 0; i < images; ++i) {
+        this->_images.push_back(swapchain_images[i]);
+    }
+
+    delete[] swapchain_images;
 }
 
 VkSwapchainKHR Swapchain::vk_swapchain()
 {
     return this->_vk_swapchain;
+}
+
+VkSurfaceFormatKHR Swapchain::surface_format() const
+{
+    return this->_surface_format;
+}
+
+std::vector<VkImage> Swapchain::images() const
+{
+    return this->_images;
 }
 
 } // namespace vk

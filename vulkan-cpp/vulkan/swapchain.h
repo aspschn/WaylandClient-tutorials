@@ -6,6 +6,7 @@
 
 // C++
 #include <memory>
+#include <vector>
 
 // Vulkan
 #include <vulkan/vulkan.h>
@@ -26,12 +27,17 @@ public:
 
     VkSwapchainKHR vk_swapchain();
 
+    VkSurfaceFormatKHR surface_format() const;
+
+    std::vector<VkImage> images() const;
+
 private:
     VkSwapchainKHR _vk_swapchain;
     VkSurfaceFormatKHR _surface_format;
     VkPresentModeKHR _present_mode;
     uint32_t _image_count;
     VkExtent2D _extent;
+    std::vector<VkImage> _images;
 };
 
 } // namespace vk
