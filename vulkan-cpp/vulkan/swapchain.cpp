@@ -88,7 +88,7 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
     }
     create_info.preTransform = capabilities.currentTransform;
     // ?? No alpha?
-    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    create_info.compositeAlpha = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
     create_info.presentMode = this->_present_mode;
     create_info.clipped = VK_TRUE;
     create_info.oldSwapchain = VK_NULL_HANDLE;

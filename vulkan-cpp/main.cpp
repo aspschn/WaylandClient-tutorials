@@ -477,7 +477,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     vulkan_clear_color.color.float32[0] = 0.0f;
     vulkan_clear_color.color.float32[1] = 0.0f;
     vulkan_clear_color.color.float32[2] = 0.0f;
-    vulkan_clear_color.color.float32[3] = 1.0f;
+    vulkan_clear_color.color.float32[3] = 0.5f;
 
     vulkan_render_pass_begin_info.clearValueCount = 1;
     vulkan_render_pass_begin_info.pClearValues = &vulkan_clear_color;
