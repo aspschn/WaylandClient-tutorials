@@ -675,6 +675,7 @@ void draw_frame(std::shared_ptr<vk::Device> device,
 
     // Set zero or null.
     present_info.pNext = NULL;
+    present_info.pResults = NULL;
 
     fprintf(stderr, "vkQueuePresentKHR() - queue: %p\n", device->present_queue());
     vkQueuePresentKHR(device->present_queue(), &present_info);
