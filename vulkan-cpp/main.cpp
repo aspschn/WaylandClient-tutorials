@@ -95,6 +95,7 @@ VkSemaphore vulkan_image_available_semaphore = NULL;
 VkSemaphore vulkan_render_finished_semaphore = NULL;
 VkFence vulkan_in_flight_fence = NULL;
 
+float clear_alpha = 0.1f;
 
 struct wl_subsurface *subsurface;
 
@@ -477,7 +478,13 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     vulkan_clear_color.color.float32[0] = 0.0f;
     vulkan_clear_color.color.float32[1] = 0.0f;
     vulkan_clear_color.color.float32[2] = 0.0f;
-    vulkan_clear_color.color.float32[3] = 0.5f;
+    vulkan_clear_color.color.float32[3] = clear_alpha;
+
+    // Change alpha for next frame.
+    clear_alpha += 0.0005f;
+    if (clear_alpha >= 1.0f) {
+        clear_alpha = 0.1f;
+    }
 
     vulkan_render_pass_begin_info.clearValueCount = 1;
     vulkan_render_pass_begin_info.pClearValues = &vulkan_clear_color;
