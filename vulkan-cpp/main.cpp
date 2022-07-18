@@ -37,6 +37,8 @@ struct xdg_toplevel *xdg_toplevel = NULL;
 #define WINDOW_WIDTH 480
 #define WINDOW_HEIGHT 360
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 // Vulkan validation layers.
 const char *validation_layers[] = {
     "VK_LAYER_KHRONOS_validation",
@@ -82,15 +84,15 @@ VkPipeline vulkan_graphics_pipeline = NULL;
 VkCommandPoolCreateInfo vulkan_command_pool_create_info;
 VkCommandPool vulkan_command_pool = NULL;
 // Command buffer.
-VkCommandBufferAllocateInfo vulkan_command_buffer_allocate_info;
-VkCommandBuffer vulkan_command_buffer = NULL;
+VkCommandBufferAllocateInfo vk_command_buffer_allocate_info;
+VkCommandBuffer *vk_command_buffers = NULL;
 VkCommandBufferBeginInfo vulkan_command_buffer_begin_info; // Unused.
 VkRenderPassBeginInfo vulkan_render_pass_begin_info;
 VkClearValue vulkan_clear_color;
 // Sync objects.
-VkSemaphore vulkan_image_available_semaphore = NULL;
-VkSemaphore vulkan_render_finished_semaphore = NULL;
-VkFence vulkan_in_flight_fence = NULL;
+VkSemaphore *vk_image_available_semaphores = NULL;
+VkSemaphore *vk_render_finished_semaphores = NULL;
+VkFence *vk_in_flight_fences = NULL;
 
 float clear_alpha = 0.1f;
 vk::Vertex vertices[3] = {
@@ -98,6 +100,7 @@ vk::Vertex vertices[3] = {
     {{ 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }},
     {{ -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }},
 };
+uint32_t current_frame = 0;
 
 struct wl_subsurface *subsurface;
 
@@ -358,28 +361,36 @@ static void create_vulkan_command_pool(std::shared_ptr<vk::Device> device)
         vulkan_command_pool);
 }
 
-static void create_vulkan_command_buffer(std::shared_ptr<vk::Device> device)
+static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
 
-    vulkan_command_buffer_allocate_info.sType =
+    vk_command_buffers = new VkCommandBuffer[MAX_FRAMES_IN_FLIGHT];
+
+    vk_command_buffer_allocate_info.sType =
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    vulkan_command_buffer_allocate_info.commandPool = vulkan_command_pool;
-    vulkan_command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    vulkan_command_buffer_allocate_info.commandBufferCount = 1;
+    vk_command_buffer_allocate_info.commandPool = vulkan_command_pool;
+    vk_command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    vk_command_buffer_allocate_info.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 
     result = vkAllocateCommandBuffers(device->vk_device(),
-        &vulkan_command_buffer_allocate_info, &vulkan_command_buffer);
+        &vk_command_buffer_allocate_info, vk_command_buffers);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to allocate command buffers!\n");
     }
-    fprintf(stderr, "Command buffer allocated. - command buffer: %p\n",
-        vulkan_command_buffer);
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        fprintf(stderr, "Command buffer allocated. - command buffer: %p\n",
+            vk_command_buffers[i]);
+    }
 }
 
 static void create_vulkan_sync_objects(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
+
+    vk_image_available_semaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+    vk_render_finished_semaphores = new VkSemaphore[MAX_FRAMES_IN_FLIGHT];
+    vk_in_flight_fences = new VkFence[MAX_FRAMES_IN_FLIGHT];
 
     VkSemaphoreCreateInfo semaphore_create_info;
     semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -391,27 +402,29 @@ static void create_vulkan_sync_objects(std::shared_ptr<vk::Device> device)
     fence_create_info.pNext = NULL;
     fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
-        NULL, &vulkan_image_available_semaphore);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create image available semaphore!\n");
-        return;
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+        result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
+            NULL, &vk_image_available_semaphores[i]);
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create image available semaphore!\n");
+            return;
+        }
+        fprintf(stderr, "Image available semaphore created.\n");
+        result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
+            NULL, &vk_render_finished_semaphores[i]);
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create render finished semaphore!\n");
+            return;
+        }
+        fprintf(stderr, "Render finished semaphore created.\n");
+        result = vkCreateFence(device->vk_device(), &fence_create_info,
+            NULL, &vk_in_flight_fences[i]);
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create fence!\n");
+            return;
+        }
+        fprintf(stderr, "Fence created.\n");
     }
-    fprintf(stderr, "Image available semaphore created.\n");
-    result = vkCreateSemaphore(device->vk_device(), &semaphore_create_info,
-        NULL, &vulkan_render_finished_semaphore);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create render finished semaphore!\n");
-        return;
-    }
-    fprintf(stderr, "Render finished semaphore created.\n");
-    result = vkCreateFence(device->vk_device(), &fence_create_info,
-        NULL, &vulkan_in_flight_fence);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create fence!\n");
-        return;
-    }
-    fprintf(stderr, "Fence created.\n");
 }
 
 static void record_command_buffer(VkCommandBuffer command_buffer,
@@ -503,30 +516,33 @@ void draw_frame(std::shared_ptr<vk::Device> device,
 {
     VkResult result;
 
-    vkWaitForFences(device->vk_device(), 1, &vulkan_in_flight_fence,
+    vkWaitForFences(device->vk_device(), 1, &vk_in_flight_fences[current_frame],
         VK_TRUE, UINT64_MAX);
-    vkResetFences(device->vk_device(), 1, &vulkan_in_flight_fence);
+    vkResetFences(device->vk_device(), 1, &vk_in_flight_fences[current_frame]);
 
     uint32_t image_index;
     result = vkAcquireNextImageKHR(device->vk_device(),
         swapchain->vk_swapchain(),
         UINT64_MAX,
-        vulkan_image_available_semaphore, VK_NULL_HANDLE, &image_index);
+        vk_image_available_semaphores[current_frame],
+        VK_NULL_HANDLE,
+        &image_index);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to acquire next image!\n");
         return;
     }
     fprintf(stderr, "Acquired next image. - image index: %d\n", image_index);
 
-    vkResetCommandBuffer(vulkan_command_buffer, 0);
-    record_command_buffer(vulkan_command_buffer, image_index, swapchain,
+    vkResetCommandBuffer(vk_command_buffers[current_frame], 0);
+    record_command_buffer(vk_command_buffers[current_frame], image_index,
+        swapchain,
         render_pass);
 
     VkSubmitInfo submit_info;
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     VkSemaphore wait_semaphores[] = {
-        vulkan_image_available_semaphore,
+        vk_image_available_semaphores[current_frame],
     };
     VkPipelineStageFlags wait_stages[] = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -536,10 +552,10 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     submit_info.pWaitDstStageMask = wait_stages;
 
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &vulkan_command_buffer;
+    submit_info.pCommandBuffers = &vk_command_buffers[current_frame];
 
     VkSemaphore signal_semaphores[] = {
-        vulkan_render_finished_semaphore,
+        vk_render_finished_semaphores[current_frame],
     };
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
@@ -548,7 +564,7 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     submit_info.pNext = NULL;
 
     result = vkQueueSubmit(device->graphics_queue(), 1, &submit_info,
-        vulkan_in_flight_fence);
+        vk_in_flight_fences[current_frame]);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to submit draw command buffer!\n");
         return;
@@ -721,7 +737,7 @@ int main(int argc, char *argv[])
 
     create_vulkan_graphics_pipeline(device, render_pass);
     create_vulkan_command_pool(device);
-    create_vulkan_command_buffer(device);
+    create_vulkan_command_buffers(device);
     create_vulkan_sync_objects(device);
 
     draw_frame(device, swapchain, render_pass);
