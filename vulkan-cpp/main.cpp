@@ -49,7 +49,6 @@ VkLayerProperties *vulkan_layer_properties = NULL;
 // Vulkan surface.
 // Swapchain.
 // Image views.
-VkImageView *vulkan_image_views = NULL;
 // Render pass.
 VkAttachmentDescription vulkan_attachment_description;
 VkAttachmentReference vulkan_attachment_reference;
@@ -145,47 +144,6 @@ static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
     fread(*code, *size, 1, f);
 
     fclose(f);
-}
-
-static void create_vulkan_image_views(
-        std::shared_ptr<vk::Device> device,
-        std::shared_ptr<vk::Swapchain> swapchain)
-{
-    VkResult result;
-
-    auto images = swapchain->images();
-
-    vulkan_image_views = (VkImageView*)malloc(
-        sizeof(VkImageView) * images.size()
-    );
-    for (uint32_t i = 0; i < images.size(); ++i) {
-        VkImageViewCreateInfo create_info;
-        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image = images[i];
-        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format = swapchain->surface_format().format;
-
-        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        create_info.subresourceRange.baseMipLevel = 0;
-        create_info.subresourceRange.levelCount = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount = 1;
-
-        create_info.flags = 0;
-        create_info.pNext = NULL;
-
-        result = vkCreateImageView(device->vk_device(), &create_info, NULL,
-            &vulkan_image_views[i]);
-        if (result != VK_SUCCESS) {
-            fprintf(stderr, "Image view creation failed. index: %d\n", i);
-        }
-        fprintf(stderr, "Image view created - image view: %p\n", vulkan_image_views[i]);
-    }
 }
 
 static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device,
@@ -424,9 +382,11 @@ static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device,
         sizeof(VkFramebuffer) * images.size()
     );
 
+    auto image_views = swapchain->image_views();
+
     for (uint32_t i = 0; i < images.size(); ++i) {
         VkImageView attachments[] = {
-            vulkan_image_views[i],
+            image_views[i],
         };
 
         VkFramebufferCreateInfo create_info;
@@ -821,7 +781,6 @@ int main(int argc, char *argv[])
     auto swapchain = std::make_shared<vk::Swapchain>(instance, surface, device,
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    create_vulkan_image_views(device, swapchain);
     create_vulkan_render_pass(device, swapchain);
     create_vulkan_graphics_pipeline(device);
     create_vulkan_framebuffers(device, swapchain);

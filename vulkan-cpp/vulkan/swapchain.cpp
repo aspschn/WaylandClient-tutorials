@@ -18,6 +18,8 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
         uint32_t width, uint32_t height)
 {
     // Init.
+    this->_device = device;
+
     this->_vk_swapchain = nullptr;
     this->_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
     this->_image_count = 0;
@@ -103,32 +105,10 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
     delete[] queue_family_indices;
 
     // Create images.
-    uint32_t images;
-    result = vkGetSwapchainImagesKHR(device->vk_device(),
-        this->_vk_swapchain, &images, NULL);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get number of swapchain images!\n");
-        return;
-    }
-    fprintf(stderr, "Number of images: %d\n", images);
+    this->_create_images(device->vk_device());
 
-    auto swapchain_images = new VkImage[images];
-    result = vkGetSwapchainImagesKHR(device->vk_device(),
-        this->_vk_swapchain, &images, swapchain_images);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to get swapchain images!\n");
-        delete[] swapchain_images;
-
-        return;
-    }
-    fprintf(stderr, "Swapchain images got.\n");
-    this->_image_count = images;
-
-    for (uint32_t i = 0; i < images; ++i) {
-        this->_images.push_back(swapchain_images[i]);
-    }
-
-    delete[] swapchain_images;
+    // Create image views.
+    this->_create_image_views(device->vk_device());
 }
 
 VkSwapchainKHR Swapchain::vk_swapchain()
@@ -146,9 +126,102 @@ std::vector<VkImage> Swapchain::images() const
     return this->_images;
 }
 
+std::vector<VkImageView> Swapchain::image_views() const
+{
+    return this->_image_views;
+}
+
 VkExtent2D Swapchain::extent() const
 {
     return this->_extent;
+}
+
+//==================
+// Private Methods
+//==================
+void Swapchain::_create_images(VkDevice vk_device)
+{
+    VkResult result;
+
+    uint32_t images;
+    result = vkGetSwapchainImagesKHR(vk_device,
+        this->_vk_swapchain, &images, NULL);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get number of swapchain images!\n");
+        return;
+    }
+    fprintf(stderr, "Number of images: %d\n", images);
+
+    auto swapchain_images = new VkImage[images];
+    result = vkGetSwapchainImagesKHR(vk_device,
+        this->_vk_swapchain, &images, swapchain_images);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get swapchain images!\n");
+        delete[] swapchain_images;
+
+        return;
+    }
+    fprintf(stderr, "Swapchain images got.\n");
+    this->_image_count = images;
+
+    for (uint32_t i = 0; i < images; ++i) {
+        this->_images.push_back(swapchain_images[i]);
+    }
+
+    delete[] swapchain_images;
+}
+
+void Swapchain::_destroy_images()
+{
+    //
+}
+
+void Swapchain::_create_image_views(VkDevice vk_device)
+{
+    VkResult result;
+
+    auto images = this->images();
+
+    auto image_views = new VkImageView[images.size()];
+    for (uint32_t i = 0; i < images.size(); ++i) {
+        VkImageViewCreateInfo create_info;
+        create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        create_info.image = images[i];
+        create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        create_info.format = this->surface_format().format;
+
+        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        create_info.subresourceRange.baseMipLevel = 0;
+        create_info.subresourceRange.levelCount = 1;
+        create_info.subresourceRange.baseArrayLayer = 0;
+        create_info.subresourceRange.layerCount = 1;
+
+        create_info.flags = 0;
+        create_info.pNext = NULL;
+
+        result = vkCreateImageView(vk_device, &create_info, NULL,
+            &image_views[i]);
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Image view creation failed. index: %d\n", i);
+        }
+        fprintf(stderr, "Image view created - image view: %p\n", image_views[i]);
+        this->_image_views.push_back(image_views[i]);
+    }
+
+    delete[] image_views;
+}
+
+void Swapchain::_destroy_image_views(VkDevice vk_device)
+{
+    for (uint64_t i = 0; i < this->_image_views.size(); ++i) {
+        vkDestroyImageView(vk_device, this->_image_views[i], NULL);
+    }
+    this->_image_views.clear();
 }
 
 } // namespace vk
