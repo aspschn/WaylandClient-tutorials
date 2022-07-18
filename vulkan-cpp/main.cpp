@@ -17,12 +17,12 @@
 
 #include "vulkan/instance.h"
 #include "vulkan/surface.h"
+#include "vulkan/device.h"
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_subcompositor *subcompositor = NULL;
 struct wl_surface *wl_surface;
-struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_output *output;
 
@@ -211,96 +211,7 @@ static void create_vulkan_logical_device(std::shared_ptr<vk::Instance> instance,
 {
     VkResult result;
 
-    // Find queue families.
-    uint32_t queue_families = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(instance->vk_physical_device(),
-        &queue_families, NULL);
-    fprintf(stderr, "Queue Families: %d\n", queue_families);
-
-    vulkan_queue_families = (VkQueueFamilyProperties*)malloc(
-        sizeof(VkQueueFamilyProperties) * queue_families
-    );
-    vkGetPhysicalDeviceQueueFamilyProperties(instance->vk_physical_device(),
-        &queue_families, vulkan_queue_families);
-
-    for (uint32_t i = 0; i < queue_families; ++i) {
-        VkQueueFamilyProperties properties = *(vulkan_queue_families + i);
-        fprintf(stderr, " - Queue count: %d\n", properties.queueCount);
-        if (properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            fprintf(stderr, " -- Has queue graphics bit. index: %d\n", i);
-            graphics_family = i;
-//            continue;
-        }
-
-        // Presentation support.
-        VkBool32 present_support = VK_FALSE;
-        result = vkGetPhysicalDeviceSurfaceSupportKHR(instance->vk_physical_device(),
-            i, surface->vk_surface(), &present_support);
-        if (result != VK_SUCCESS) {
-            fprintf(stderr, "Error!\n");
-            return;
-        }
-        if (present_support == VK_TRUE) {
-            fprintf(stderr, "Present support. index: %d\n", i);
-            present_family = i;
-            break;
-        }
-    }
-    queue_family_indices = (uint32_t*)malloc(sizeof(uint32_t) * 2);
-    queue_family_indices[0] = graphics_family;
-    queue_family_indices[1] = present_family;
-    fprintf(stderr, "[DEBUG] graphics/present queue family indices: %d, %d\n",
-        graphics_family,
-        present_family);
-
-    vulkan_queue_create_infos = (VkDeviceQueueCreateInfo*)malloc(
-        sizeof(VkDeviceQueueCreateInfo) * 2
-    );
-
-    // Creating the presentation queue.
-    vulkan_queue_create_infos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    vulkan_queue_create_infos[0].queueFamilyIndex = graphics_family;
-    vulkan_queue_create_infos[0].queueCount = 1;
-    vulkan_queue_create_infos[0].pQueuePriorities = &queue_priority;
-    vulkan_queue_create_infos[0].flags = 0;
-    vulkan_queue_create_infos[0].pNext = NULL;
-
-    vulkan_queue_create_infos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    vulkan_queue_create_infos[1].queueFamilyIndex = present_family;
-    vulkan_queue_create_infos[1].queueCount = 1;
-    vulkan_queue_create_infos[1].pQueuePriorities = &queue_priority;
-    vulkan_queue_create_infos[1].flags = 0;
-    vulkan_queue_create_infos[1].pNext = NULL;
-
-    // Logical device.
-    vulkan_device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    vulkan_device_create_info.queueCreateInfoCount = 2;
-    vulkan_device_create_info.pQueueCreateInfos = vulkan_queue_create_infos;
-
-    vulkan_device_create_info.pEnabledFeatures = &vulkan_device_features;
-
-    vulkan_device_create_info.enabledExtensionCount = 1;
-    vulkan_device_create_info.ppEnabledExtensionNames = device_extensions;
-
-    // Zero or null.
-    vulkan_device_create_info.enabledLayerCount = 0;
-    vulkan_device_create_info.ppEnabledLayerNames = NULL;
-    vulkan_device_create_info.flags = 0;
-    vulkan_device_create_info.pNext = NULL;
-
-    result = vkCreateDevice(instance->vk_physical_device(),
-        &vulkan_device_create_info,
-        NULL, &vulkan_device);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create logical device! reuslt: %d\n",
-            result);
-        return;
-    } else {
-        fprintf(stderr, "Logical device created - device: %p\n", vulkan_device);
-    }
-
-    vkGetDeviceQueue(vulkan_device, graphics_family, 0, &vulkan_graphics_queue);
-    vkGetDeviceQueue(vulkan_device, present_family, 0, &vulkan_present_queue);
+    ///////////////////////////////////
 
     // Querying details of swap chain support.
     result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(instance->vk_physical_device(),
@@ -1101,6 +1012,8 @@ int main(int argc, char *argv[])
     auto instance = std::make_shared<vk::Instance>();
     // Vulkan surface.
     auto surface = std::make_shared<vk::Surface>(instance, display, wl_surface);
+    // Logical device.
+    auto device = std::make_shared<vk::Device>(instance, surface);
 
     create_vulkan_logical_device(instance, surface);
     create_vulkan_swapchain(surface);

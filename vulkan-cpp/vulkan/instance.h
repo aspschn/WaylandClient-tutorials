@@ -1,6 +1,10 @@
 #ifndef _INSTANCE_H
 #define _INSTANCE_H
 
+// C++
+#include <vector>
+
+// Vulkan
 #include <vulkan/vulkan.h>
 
 namespace vk {
@@ -14,6 +18,9 @@ public:
     VkInstance vk_instance();
 
     VkPhysicalDevice vk_physical_device();
+
+    VkSurfaceCapabilitiesKHR surface_capabilities(
+            VkSurfaceKHR vk_surface) const;
 
 private:
     VkInstance _vk_instance;

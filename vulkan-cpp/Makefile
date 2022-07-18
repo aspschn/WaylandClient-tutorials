@@ -1,6 +1,7 @@
 OBJ = \
 	vulkan/instance.o \
-	vulkan/surface.o
+	vulkan/surface.o \
+	vulkan/device.o
 
 PKG_CONFIG=`pkg-config --cflags --libs cairo`
 

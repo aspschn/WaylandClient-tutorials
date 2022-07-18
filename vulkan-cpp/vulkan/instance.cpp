@@ -49,6 +49,7 @@ Instance::Instance()
             (char*)this->_vk_extension_names[i],
             properties.extensionName);
     }
+    delete[] extension_properties;
 
     // Create instance.
     VkInstanceCreateInfo instance_create_info;
@@ -108,6 +109,24 @@ VkInstance Instance::vk_instance()
 VkPhysicalDevice Instance::vk_physical_device()
 {
     return this->_vk_physical_device;
+}
+
+VkSurfaceCapabilitiesKHR Instance::surface_capabilities(
+        VkSurfaceKHR vk_surface) const
+{
+    VkResult result;
+
+    // Querying details of swap chain support.
+    VkSurfaceCapabilitiesKHR capabilities;
+    result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        this->_vk_physical_device,
+        vk_surface,
+        &capabilities);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to get surface capabilities!\n");
+    }
+
+    return capabilities;
 }
 
 } // namespace vk
