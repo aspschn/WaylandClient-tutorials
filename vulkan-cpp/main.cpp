@@ -18,6 +18,7 @@
 #include "vulkan/instance.h"
 #include "vulkan/surface.h"
 #include "vulkan/device.h"
+#include "vulkan/render-pass.h"
 #include "vulkan/swapchain.h"
 
 struct wl_display *display = NULL;
@@ -50,12 +51,6 @@ VkLayerProperties *vulkan_layer_properties = NULL;
 // Swapchain.
 // Image views.
 // Render pass.
-VkAttachmentDescription vulkan_attachment_description;
-VkAttachmentReference vulkan_attachment_reference;
-VkSubpassDescription vulkan_subpass_description;
-VkRenderPass vulkan_render_pass;
-VkRenderPassCreateInfo vulkan_render_pass_create_info;
-VkSubpassDependency vulkan_dependency;
 // Shaders.
 uint8_t *vert_shader_code = NULL;
 uint32_t vert_shader_code_size = 0;
@@ -146,53 +141,8 @@ static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
     fclose(f);
 }
 
-static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device,
-        VkFormat format)
-{
-    VkResult result;
-
-    vulkan_attachment_description.format = format;
-    vulkan_attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
-    vulkan_attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    vulkan_attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    vulkan_attachment_description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    vulkan_attachment_description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    vulkan_attachment_description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    vulkan_attachment_description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    vulkan_attachment_reference.attachment = 0;
-    vulkan_attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    vulkan_subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    vulkan_subpass_description.colorAttachmentCount = 1;
-    vulkan_subpass_description.pColorAttachments = &vulkan_attachment_reference;
-
-    // Subpass dependency.
-    vulkan_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    vulkan_dependency.dstSubpass = 0;
-    vulkan_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    vulkan_dependency.srcAccessMask = 0;
-    vulkan_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    vulkan_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    vulkan_render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    vulkan_render_pass_create_info.attachmentCount = 1;
-    vulkan_render_pass_create_info.pAttachments = &vulkan_attachment_description;
-    vulkan_render_pass_create_info.subpassCount = 1;
-    vulkan_render_pass_create_info.pSubpasses = &vulkan_subpass_description;
-    vulkan_render_pass_create_info.dependencyCount = 1;
-    vulkan_render_pass_create_info.pDependencies = &vulkan_dependency;
-
-    result = vkCreateRenderPass(device->vk_device(), &vulkan_render_pass_create_info,
-        NULL, &vulkan_render_pass);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create render pass!\n");
-    }
-    fprintf(stderr, "Render pass created. - render pass: %p\n",
-        vulkan_render_pass);
-}
-
-static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device)
+static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::RenderPass> render_pass)
 {
     VkResult result;
 
@@ -351,7 +301,7 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device)
     vulkan_graphics_pipeline_create_info.pDynamicState =
         &vulkan_dynamic_state_create_info;
     vulkan_graphics_pipeline_create_info.layout = vulkan_layout;
-    vulkan_graphics_pipeline_create_info.renderPass = vulkan_render_pass;
+    vulkan_graphics_pipeline_create_info.renderPass = render_pass->vk_render_pass();
     vulkan_graphics_pipeline_create_info.subpass = 0;
     vulkan_graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
 
@@ -450,7 +400,8 @@ static void create_vulkan_sync_objects(std::shared_ptr<vk::Device> device)
 }
 
 static void record_command_buffer(VkCommandBuffer command_buffer,
-        uint32_t image_index, std::shared_ptr<vk::Swapchain> swapchain)
+        uint32_t image_index, std::shared_ptr<vk::Swapchain> swapchain,
+        std::shared_ptr<vk::RenderPass> render_pass)
 {
     VkResult result;
 
@@ -469,7 +420,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     fprintf(stderr, "Begin command buffer.\n");
 
     vulkan_render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    vulkan_render_pass_begin_info.renderPass = vulkan_render_pass;
+    vulkan_render_pass_begin_info.renderPass = render_pass->vk_render_pass();
     vulkan_render_pass_begin_info.framebuffer = swapchain->framebuffers()[image_index];
     vulkan_render_pass_begin_info.renderArea.offset.x = 0;
     vulkan_render_pass_begin_info.renderArea.offset.y = 0;
@@ -532,7 +483,8 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
 }
 
 void draw_frame(std::shared_ptr<vk::Device> device,
-        std::shared_ptr<vk::Swapchain> swapchain)
+        std::shared_ptr<vk::Swapchain> swapchain,
+        std::shared_ptr<vk::RenderPass> render_pass)
 {
     VkResult result;
 
@@ -552,7 +504,8 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     fprintf(stderr, "Acquired next image. - image index: %d\n", image_index);
 
     vkResetCommandBuffer(vulkan_command_buffer, 0);
-    record_command_buffer(vulkan_command_buffer, image_index, swapchain);
+    record_command_buffer(vulkan_command_buffer, image_index, swapchain,
+        render_pass);
 
     VkSubmitInfo submit_info;
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -744,18 +697,19 @@ int main(int argc, char *argv[])
     // Logical device.
     auto device = std::make_shared<vk::Device>(instance, surface);
     // Render pass.
-    create_vulkan_render_pass(device, VK_FORMAT_B8G8R8A8_SRGB);
+    auto render_pass = std::make_shared<vk::RenderPass>(
+        VK_FORMAT_B8G8R8A8_SRGB, device);
     // Swapchain.
     auto swapchain = std::make_shared<vk::Swapchain>(instance, surface, device,
-        vulkan_render_pass,
+        render_pass->vk_render_pass(),
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    create_vulkan_graphics_pipeline(device);
+    create_vulkan_graphics_pipeline(device, render_pass);
     create_vulkan_command_pool(device);
     create_vulkan_command_buffer(device);
     create_vulkan_sync_objects(device);
 
-    draw_frame(device, swapchain);
+    draw_frame(device, swapchain, render_pass);
 
     wl_surface_commit(wl_surface);
 
@@ -764,7 +718,7 @@ int main(int argc, char *argv[])
     while (res != -1) {
         res = wl_display_dispatch(display);
         fprintf(stderr, "wl_display_dispatch() called.\n");
-        draw_frame(device, swapchain);
+        draw_frame(device, swapchain, render_pass);
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);
 
