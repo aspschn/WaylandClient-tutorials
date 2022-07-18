@@ -21,6 +21,8 @@
 #include "vulkan/render-pass.h"
 #include "vulkan/swapchain.h"
 
+#include "vulkan/vertex.h"
+
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_subcompositor *subcompositor = NULL;
@@ -56,8 +58,8 @@ uint8_t *vert_shader_code = NULL;
 uint32_t vert_shader_code_size = 0;
 uint8_t *frag_shader_code = NULL;
 uint32_t frag_shader_code_size = 0;
-VkPipelineShaderStageCreateInfo vulkan_vert_shader_stage_create_info;
-VkPipelineShaderStageCreateInfo vulkan_frag_shader_stage_create_info;
+VkPipelineShaderStageCreateInfo vk_vert_shader_stage_create_info;
+VkPipelineShaderStageCreateInfo vk_frag_shader_stage_create_info;
 VkPipelineShaderStageCreateInfo *vulkan_shader_stage_create_infos = NULL;
 VkPipelineVertexInputStateCreateInfo vulkan_vert_input_state_create_info;
 VkPipelineInputAssemblyStateCreateInfo vulkan_input_assembly_state_create_info;
@@ -91,6 +93,11 @@ VkSemaphore vulkan_render_finished_semaphore = NULL;
 VkFence vulkan_in_flight_fence = NULL;
 
 float clear_alpha = 0.1f;
+vk::Vertex vertices[3] = {
+    {{ 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f }},
+    {{ 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }},
+    {{ -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }},
+};
 
 struct wl_subsurface *subsurface;
 
@@ -187,30 +194,38 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device,
     fprintf(stderr, "Fragment shader module created.\n");
 
     // Write shader stage create infos.
-    vulkan_vert_shader_stage_create_info.sType =
+    vk_vert_shader_stage_create_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vulkan_vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vulkan_vert_shader_stage_create_info.module = vert_shader_module;
-    vulkan_vert_shader_stage_create_info.pName = "main";
+    vk_vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vk_vert_shader_stage_create_info.module = vert_shader_module;
+    vk_vert_shader_stage_create_info.pName = "main";
 
-    vulkan_frag_shader_stage_create_info.sType =
+    vk_frag_shader_stage_create_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vulkan_frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    vulkan_frag_shader_stage_create_info.module = frag_shader_module;
-    vulkan_frag_shader_stage_create_info.pName = "main";
+    vk_frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    vk_frag_shader_stage_create_info.module = frag_shader_module;
+    vk_frag_shader_stage_create_info.pName = "main";
 
     // Shader stage.
     vulkan_shader_stage_create_infos = (VkPipelineShaderStageCreateInfo*)malloc(
         sizeof(VkPipelineShaderStageCreateInfo) * 2
     );
-    *(vulkan_shader_stage_create_infos + 0) = vulkan_vert_shader_stage_create_info;
-    *(vulkan_shader_stage_create_infos + 1) = vulkan_frag_shader_stage_create_info;
+    *(vulkan_shader_stage_create_infos + 0) = vk_vert_shader_stage_create_info;
+    *(vulkan_shader_stage_create_infos + 1) = vk_frag_shader_stage_create_info;
 
     // Vertex input.
     vulkan_vert_input_state_create_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vulkan_vert_input_state_create_info.vertexBindingDescriptionCount = 0;
-    vulkan_vert_input_state_create_info.vertexAttributeDescriptionCount = 0;
+
+    auto binding_description = vk::Vertex::get_binding_description();
+    auto attribute_descriptions = vk::Vertex::get_attribute_descriptions();
+
+    vulkan_vert_input_state_create_info.vertexBindingDescriptionCount = 1;
+    vulkan_vert_input_state_create_info.pVertexBindingDescriptions =
+        &binding_description;
+    vulkan_vert_input_state_create_info.vertexAttributeDescriptionCount = 2;
+    vulkan_vert_input_state_create_info.pVertexAttributeDescriptions =
+        attribute_descriptions.data();
 
     // Input assembly.
     vulkan_input_assembly_state_create_info.sType =

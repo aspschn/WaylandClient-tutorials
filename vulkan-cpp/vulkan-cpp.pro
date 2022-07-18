@@ -11,6 +11,7 @@ HEADERS += vulkan/instance.h \
     vulkan/device.h \
     vulkan/swapchain.h \
     vulkan/render-pass.h \
+    vulkan/vertex.h \
     vulkan/utils.h
 
 CONFIG += link_pkgconfig
