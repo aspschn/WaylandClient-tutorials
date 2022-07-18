@@ -15,10 +15,12 @@ namespace vk {
 Swapchain::Swapchain(std::shared_ptr<Instance> instance,
         std::shared_ptr<Surface> surface,
         std::shared_ptr<Device> device,
+        VkRenderPass render_pass,
         uint32_t width, uint32_t height)
 {
     // Init.
     this->_device = device;
+    this->_render_pass = render_pass;
 
     this->_vk_swapchain = nullptr;
     this->_present_mode = VK_PRESENT_MODE_MAILBOX_KHR;
@@ -109,6 +111,9 @@ Swapchain::Swapchain(std::shared_ptr<Instance> instance,
 
     // Create image views.
     this->_create_image_views(device->vk_device());
+
+    // Create framebuffers.
+    this->_create_framebuffers();
 }
 
 VkSwapchainKHR Swapchain::vk_swapchain()
@@ -129,6 +134,11 @@ std::vector<VkImage> Swapchain::images() const
 std::vector<VkImageView> Swapchain::image_views() const
 {
     return this->_image_views;
+}
+
+std::vector<VkFramebuffer> Swapchain::framebuffers() const
+{
+    return this->_framebuffers;
 }
 
 VkExtent2D Swapchain::extent() const
@@ -222,6 +232,57 @@ void Swapchain::_destroy_image_views(VkDevice vk_device)
         vkDestroyImageView(vk_device, this->_image_views[i], NULL);
     }
     this->_image_views.clear();
+}
+
+void Swapchain::_create_framebuffers()
+{
+    VkResult result;
+
+    auto image_views = this->image_views();
+
+    auto framebuffers = new VkFramebuffer[image_views.size()];
+
+    for (uint32_t i = 0; i < image_views.size(); ++i) {
+        VkImageView attachments[] = {
+            image_views[i],
+        };
+
+        VkFramebufferCreateInfo create_info;
+        create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        create_info.renderPass = this->_render_pass;
+        create_info.attachmentCount = 1;
+        create_info.pAttachments = attachments;
+        create_info.width = this->extent().width;
+        create_info.height = this->extent().height;
+        create_info.layers = 1;
+        create_info.flags = 0;
+        create_info.pNext = NULL;
+
+        result = vkCreateFramebuffer(this->_device->vk_device(), &create_info,
+            NULL,
+            &framebuffers[i]);
+        if (result != VK_SUCCESS) {
+            fprintf(stderr, "Failed to create framebuffer.\n");
+            delete[] framebuffers;
+
+            return;
+        }
+        fprintf(stderr, "Framebuffer created. - framebuffer: %p\n",
+            framebuffers[i]);
+        this->_framebuffers.push_back(framebuffers[i]);
+    }
+
+    delete[] framebuffers;
+}
+
+void Swapchain::_destroy_framebuffers()
+{
+    for (uint64_t i = 0; i < this->_framebuffers.size(); ++i) {
+        vkDestroyFramebuffer(this->_device->vk_device(),
+            this->_framebuffers[i],
+            NULL);
+    }
+    this->_framebuffers.clear();
 }
 
 } // namespace vk

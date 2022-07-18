@@ -81,7 +81,6 @@ VkPipelineLayout vulkan_layout = NULL;
 VkGraphicsPipelineCreateInfo vulkan_graphics_pipeline_create_info;
 VkPipeline vulkan_graphics_pipeline = NULL;
 // Framebuffers.
-VkFramebuffer *vulkan_framebuffers = NULL;
 // Command pool.
 VkCommandPoolCreateInfo vulkan_command_pool_create_info;
 VkCommandPool vulkan_command_pool = NULL;
@@ -147,11 +146,11 @@ static void load_shader(const char *path, uint8_t* *code, uint32_t *size)
 }
 
 static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device,
-        std::shared_ptr<vk::Swapchain> swapchain)
+        VkFormat format)
 {
     VkResult result;
 
-    vulkan_attachment_description.format = swapchain->surface_format().format;
+    vulkan_attachment_description.format = format;
     vulkan_attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
     vulkan_attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     vulkan_attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -371,45 +370,6 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device)
     */
 }
 
-static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device,
-        std::shared_ptr<vk::Swapchain> swapchain)
-{
-    VkResult result;
-
-    auto images = swapchain->images();
-
-    vulkan_framebuffers = (VkFramebuffer*)malloc(
-        sizeof(VkFramebuffer) * images.size()
-    );
-
-    auto image_views = swapchain->image_views();
-
-    for (uint32_t i = 0; i < images.size(); ++i) {
-        VkImageView attachments[] = {
-            image_views[i],
-        };
-
-        VkFramebufferCreateInfo create_info;
-        create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        create_info.renderPass = vulkan_render_pass;
-        create_info.attachmentCount = 1;
-        create_info.pAttachments = attachments;
-        create_info.width = swapchain->extent().width;
-        create_info.height = swapchain->extent().height;
-        create_info.layers = 1;
-        create_info.flags = 0;
-        create_info.pNext = NULL;
-
-        result = vkCreateFramebuffer(device->vk_device(), &create_info, NULL,
-            (vulkan_framebuffers + i));
-        if (result != VK_SUCCESS) {
-            fprintf(stderr, "Failed to create framebuffer.\n");
-            return;
-        }
-        fprintf(stderr, "Framebuffer created. - framebuffer: %p\n",
-            vulkan_framebuffers[i]);
-    }
-}
 
 static void create_vulkan_command_pool(std::shared_ptr<vk::Device> device)
 {
@@ -506,11 +466,10 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
         return;
     }
     fprintf(stderr, "Begin command buffer.\n");
-    fprintf(stderr, "Using framebuffer: %p\n", vulkan_framebuffers[image_index]);
 
     vulkan_render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     vulkan_render_pass_begin_info.renderPass = vulkan_render_pass;
-    vulkan_render_pass_begin_info.framebuffer = vulkan_framebuffers[image_index];
+    vulkan_render_pass_begin_info.framebuffer = swapchain->framebuffers()[image_index];
     vulkan_render_pass_begin_info.renderArea.offset.x = 0;
     vulkan_render_pass_begin_info.renderArea.offset.y = 0;
     vulkan_render_pass_begin_info.renderArea.extent = swapchain->extent();
@@ -777,13 +736,14 @@ int main(int argc, char *argv[])
     auto surface = std::make_shared<vk::Surface>(instance, display, wl_surface);
     // Logical device.
     auto device = std::make_shared<vk::Device>(instance, surface);
+    // Render pass.
+    create_vulkan_render_pass(device, VK_FORMAT_B8G8R8A8_SRGB);
     // Swapchain.
     auto swapchain = std::make_shared<vk::Swapchain>(instance, surface, device,
+        vulkan_render_pass,
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    create_vulkan_render_pass(device, swapchain);
     create_vulkan_graphics_pipeline(device);
-    create_vulkan_framebuffers(device, swapchain);
     create_vulkan_command_pool(device);
     create_vulkan_command_buffer(device);
     create_vulkan_sync_objects(device);
