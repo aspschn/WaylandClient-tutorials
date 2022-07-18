@@ -146,4 +146,9 @@ std::vector<VkImage> Swapchain::images() const
     return this->_images;
 }
 
+VkExtent2D Swapchain::extent() const
+{
+    return this->_extent;
+}
+
 } // namespace vk

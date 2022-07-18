@@ -31,6 +31,8 @@ public:
 
     std::vector<VkImage> images() const;
 
+    VkExtent2D extent() const;
+
 private:
     VkSwapchainKHR _vk_swapchain;
     VkSurfaceFormatKHR _surface_format;

@@ -48,16 +48,6 @@ VkLayerProperties *vulkan_layer_properties = NULL;
 // Logical device.
 // Vulkan surface.
 // Swapchain.
-VkSurfaceFormatKHR vulkan_format;
-VkPresentModeKHR vulkan_present_mode;
-VkExtent2D vulkan_extent;
-VkSwapchainCreateInfoKHR vulkan_swapchain_create_info;
-VkSwapchainKHR vulkan_swapchain = NULL;
-const char *device_extensions[] = {
-    VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-};
-VkImage *vulkan_swapchain_images = NULL;
-uint32_t vulkan_swapchain_images_length = 0;
 // Image views.
 VkImageView *vulkan_image_views = NULL;
 // Render pass.
@@ -168,7 +158,7 @@ static void create_vulkan_image_views(
     vulkan_image_views = (VkImageView*)malloc(
         sizeof(VkImageView) * images.size()
     );
-    for (uint32_t i = 0; i < vulkan_swapchain_images_length; ++i) {
+    for (uint32_t i = 0; i < images.size(); ++i) {
         VkImageViewCreateInfo create_info;
         create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         create_info.image = images[i];
@@ -198,11 +188,12 @@ static void create_vulkan_image_views(
     }
 }
 
-static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device)
+static void create_vulkan_render_pass(std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::Swapchain> swapchain)
 {
     VkResult result;
 
-    vulkan_attachment_description.format = vulkan_format.format;
+    vulkan_attachment_description.format = swapchain->surface_format().format;
     vulkan_attachment_description.samples = VK_SAMPLE_COUNT_1_BIT;
     vulkan_attachment_description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     vulkan_attachment_description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -422,15 +413,18 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device)
     */
 }
 
-static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device)
+static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::Swapchain> swapchain)
 {
     VkResult result;
 
+    auto images = swapchain->images();
+
     vulkan_framebuffers = (VkFramebuffer*)malloc(
-        sizeof(VkFramebuffer) * vulkan_swapchain_images_length
+        sizeof(VkFramebuffer) * images.size()
     );
 
-    for (uint32_t i = 0; i < vulkan_swapchain_images_length; ++i) {
+    for (uint32_t i = 0; i < images.size(); ++i) {
         VkImageView attachments[] = {
             vulkan_image_views[i],
         };
@@ -440,8 +434,8 @@ static void create_vulkan_framebuffers(std::shared_ptr<vk::Device> device)
         create_info.renderPass = vulkan_render_pass;
         create_info.attachmentCount = 1;
         create_info.pAttachments = attachments;
-        create_info.width = vulkan_extent.width;
-        create_info.height = vulkan_extent.height;
+        create_info.width = swapchain->extent().width;
+        create_info.height = swapchain->extent().height;
         create_info.layers = 1;
         create_info.flags = 0;
         create_info.pNext = NULL;
@@ -535,7 +529,7 @@ static void create_vulkan_sync_objects(std::shared_ptr<vk::Device> device)
 }
 
 static void record_command_buffer(VkCommandBuffer command_buffer,
-        uint32_t image_index)
+        uint32_t image_index, std::shared_ptr<vk::Swapchain> swapchain)
 {
     VkResult result;
 
@@ -559,7 +553,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     vulkan_render_pass_begin_info.framebuffer = vulkan_framebuffers[image_index];
     vulkan_render_pass_begin_info.renderArea.offset.x = 0;
     vulkan_render_pass_begin_info.renderArea.offset.y = 0;
-    vulkan_render_pass_begin_info.renderArea.extent = vulkan_extent;
+    vulkan_render_pass_begin_info.renderArea.extent = swapchain->extent();
 
     vulkan_clear_color.color.float32[0] = 0.0f;
     vulkan_clear_color.color.float32[1] = 0.0f;
@@ -584,8 +578,8 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     VkViewport viewport;
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)vulkan_extent.width;
-    viewport.height = (float)vulkan_extent.height;
+    viewport.width = (float)swapchain->extent().width;
+    viewport.height = (float)swapchain->extent().height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(command_buffer, 0, 1, &viewport);
@@ -593,7 +587,7 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     VkRect2D scissor;
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent = vulkan_extent;
+    scissor.extent = swapchain->extent();
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
@@ -611,7 +605,8 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     fprintf(stderr, "End command buffer.\n");
 }
 
-void draw_frame(std::shared_ptr<vk::Device> device)
+void draw_frame(std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::Swapchain> swapchain)
 {
     VkResult result;
 
@@ -620,7 +615,9 @@ void draw_frame(std::shared_ptr<vk::Device> device)
     vkResetFences(device->vk_device(), 1, &vulkan_in_flight_fence);
 
     uint32_t image_index;
-    result = vkAcquireNextImageKHR(device->vk_device(), vulkan_swapchain, UINT64_MAX,
+    result = vkAcquireNextImageKHR(device->vk_device(),
+        swapchain->vk_swapchain(),
+        UINT64_MAX,
         vulkan_image_available_semaphore, VK_NULL_HANDLE, &image_index);
     if (result != VK_SUCCESS) {
         fprintf(stderr, "Failed to acquire next image!\n");
@@ -629,7 +626,7 @@ void draw_frame(std::shared_ptr<vk::Device> device)
     fprintf(stderr, "Acquired next image. - image index: %d\n", image_index);
 
     vkResetCommandBuffer(vulkan_command_buffer, 0);
-    record_command_buffer(vulkan_command_buffer, image_index);
+    record_command_buffer(vulkan_command_buffer, image_index, swapchain);
 
     VkSubmitInfo submit_info;
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -669,7 +666,7 @@ void draw_frame(std::shared_ptr<vk::Device> device)
     present_info.pWaitSemaphores = signal_semaphores;
 
     VkSwapchainKHR swapchains[] = {
-        vulkan_swapchain,
+        swapchain->vk_swapchain(),
     };
     present_info.swapchainCount = 1;
     present_info.pSwapchains = swapchains;
@@ -679,7 +676,9 @@ void draw_frame(std::shared_ptr<vk::Device> device)
     // Set zero or null.
     present_info.pNext = NULL;
 
+    fprintf(stderr, "vkQueuePresentKHR() - queue: %p\n", device->present_queue());
     vkQueuePresentKHR(device->present_queue(), &present_info);
+    fprintf(stderr, " - Called.\n");
 }
 
 //===========
@@ -822,14 +821,14 @@ int main(int argc, char *argv[])
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
     create_vulkan_image_views(device, swapchain);
-    create_vulkan_render_pass(device);
+    create_vulkan_render_pass(device, swapchain);
     create_vulkan_graphics_pipeline(device);
-    create_vulkan_framebuffers(device);
+    create_vulkan_framebuffers(device, swapchain);
     create_vulkan_command_pool(device);
     create_vulkan_command_buffer(device);
     create_vulkan_sync_objects(device);
 
-    draw_frame(device);
+    draw_frame(device, swapchain);
 
     wl_surface_commit(wl_surface);
 
