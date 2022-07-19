@@ -83,6 +83,9 @@ VkPipeline vulkan_graphics_pipeline = NULL;
 // Command pool.
 VkCommandPoolCreateInfo vulkan_command_pool_create_info;
 VkCommandPool vulkan_command_pool = NULL;
+// Vertex buffer.
+VkBuffer vk_vertex_buffer = NULL;
+VkDeviceMemory vk_vertex_buffer_memory = NULL;
 // Command buffer.
 VkCommandBufferAllocateInfo vk_command_buffer_allocate_info;
 VkCommandBuffer *vk_command_buffers = NULL;
@@ -96,7 +99,7 @@ VkFence *vk_in_flight_fences = NULL;
 
 float clear_alpha = 0.1f;
 vk::Vertex vertices[3] = {
-    {{ 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f }},
+    {{ 0.0f, -0.5f }, { 1.0f, 1.0f, 0.0f }},
     {{ 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }},
     {{ -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }},
 };
@@ -361,6 +364,84 @@ static void create_vulkan_command_pool(std::shared_ptr<vk::Device> device)
         vulkan_command_pool);
 }
 
+static void create_vulkan_vertex_buffer(
+        std::shared_ptr<vk::Instance> instance,
+        std::shared_ptr<vk::Device> device)
+{
+    VkResult result;
+
+    VkBufferCreateInfo create_info;
+    create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    create_info.size = sizeof(vertices[0]) * 3;
+    create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    create_info.flags = 0;
+    create_info.pNext = NULL;
+    create_info.queueFamilyIndexCount = 0;
+    create_info.pQueueFamilyIndices = NULL;
+
+    result = vkCreateBuffer(device->vk_device(), &create_info, NULL,
+        &vk_vertex_buffer);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to create vertex buffer!\n");
+    }
+    fprintf(stderr, "Vertex buffer created.\n");
+
+    // Memory.
+    VkMemoryRequirements memory_requirements;
+    memory_requirements.size = 0;
+    memory_requirements.alignment = 0;
+    memory_requirements.memoryTypeBits = 0;
+    vkGetBufferMemoryRequirements(device->vk_device(), vk_vertex_buffer,
+        &memory_requirements);
+
+    // Find memory type.
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(instance->vk_physical_device(),
+        &memory_properties);
+    fprintf(stderr, "Memory properties - memoryTypeCount: %d\n",
+        memory_properties.memoryTypeCount);
+
+    uint32_t type_filter = memory_requirements.memoryTypeBits;
+    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    uint32_t memory_type = 0;
+    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+        if ((type_filter & (1 << i)) &&
+                (memory_properties.memoryTypes[i].propertyFlags & properties) == properties) {
+            memory_type = i;
+            break;
+        }
+    }
+    fprintf(stderr, "Memory type selected: %d\n", memory_type);
+
+    VkMemoryAllocateInfo allocate_info;
+    allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocate_info.allocationSize = memory_requirements.size;
+    allocate_info.memoryTypeIndex = memory_type;
+
+    allocate_info.pNext = NULL;
+
+    result = vkAllocateMemory(device->vk_device(), &allocate_info,
+        NULL, &vk_vertex_buffer_memory);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to allocate vertex buffer memory!\n");
+    }
+
+    result = vkBindBufferMemory(device->vk_device(),
+        vk_vertex_buffer, vk_vertex_buffer_memory, 0);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to bind buffer memory!\n");
+    }
+
+    void *data;
+    vkMapMemory(device->vk_device(), vk_vertex_buffer_memory, 0,
+        create_info.size, 0, &data);
+    memcpy(data, vertices, create_info.size);
+    vkUnmapMemory(device->vk_device(), vk_vertex_buffer_memory);
+}
+
 static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device)
 {
     VkResult result;
@@ -494,6 +575,14 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
     scissor.offset.y = 0;
     scissor.extent = swapchain->extent();
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+
+    VkBuffer vertex_buffers[] = {
+        vk_vertex_buffer,
+    };
+    VkDeviceSize offsets[] = {
+        0,
+    };
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
 
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
     //===============
@@ -739,6 +828,7 @@ int main(int argc, char *argv[])
 
     create_vulkan_graphics_pipeline(device, render_pass);
     create_vulkan_command_pool(device);
+    create_vulkan_vertex_buffer(instance, device);
     create_vulkan_command_buffers(device);
     create_vulkan_sync_objects(device);
 
