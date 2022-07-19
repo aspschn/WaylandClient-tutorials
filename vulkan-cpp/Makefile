@@ -4,6 +4,7 @@ OBJ = \
 	vulkan/device.o \
 	vulkan/swapchain.o \
 	vulkan/render-pass.o \
+	vulkan/command-pool.o \
 	vulkan/utils.o
 
 PKG_CONFIG=`pkg-config --cflags --libs cairo`

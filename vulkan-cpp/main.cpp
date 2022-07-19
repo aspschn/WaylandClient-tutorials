@@ -20,6 +20,7 @@
 #include "vulkan/device.h"
 #include "vulkan/render-pass.h"
 #include "vulkan/swapchain.h"
+#include "vulkan/command-pool.h"
 
 #include "vulkan/vertex.h"
 
@@ -81,8 +82,6 @@ VkGraphicsPipelineCreateInfo vulkan_graphics_pipeline_create_info;
 VkPipeline vulkan_graphics_pipeline = NULL;
 // Framebuffers.
 // Command pool.
-VkCommandPoolCreateInfo vulkan_command_pool_create_info;
-VkCommandPool vulkan_command_pool = NULL;
 // Vertex buffer.
 VkBuffer vk_vertex_buffer = NULL;
 VkDeviceMemory vk_vertex_buffer_memory = NULL;
@@ -343,27 +342,6 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device,
 }
 
 
-static void create_vulkan_command_pool(std::shared_ptr<vk::Device> device)
-{
-    VkResult result;
-
-    vulkan_command_pool_create_info.sType =
-        VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    vulkan_command_pool_create_info.flags =
-        VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    vulkan_command_pool_create_info.queueFamilyIndex =
-        device->graphics_queue_family_index();
-
-    result = vkCreateCommandPool(device->vk_device(),
-        &vulkan_command_pool_create_info, NULL, &vulkan_command_pool);
-    if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create command pool!\n");
-        return;
-    }
-    fprintf(stderr, "Command pool created. - command pool: %p\n",
-        vulkan_command_pool);
-}
-
 static void create_vulkan_vertex_buffer(
         std::shared_ptr<vk::Instance> instance,
         std::shared_ptr<vk::Device> device)
@@ -442,7 +420,8 @@ static void create_vulkan_vertex_buffer(
     vkUnmapMemory(device->vk_device(), vk_vertex_buffer_memory);
 }
 
-static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device)
+static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::CommandPool> command_pool)
 {
     VkResult result;
 
@@ -450,7 +429,7 @@ static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device)
 
     vk_command_buffer_allocate_info.sType =
         VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    vk_command_buffer_allocate_info.commandPool = vulkan_command_pool;
+    vk_command_buffer_allocate_info.commandPool = command_pool->vk_command_pool();
     vk_command_buffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     vk_command_buffer_allocate_info.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
 
@@ -827,9 +806,12 @@ int main(int argc, char *argv[])
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
     create_vulkan_graphics_pipeline(device, render_pass);
-    create_vulkan_command_pool(device);
+    // create_vulkan_command_pool(device);
+    // Command pool.
+    auto command_pool = std::make_shared<vk::CommandPool>(device);
+
     create_vulkan_vertex_buffer(instance, device);
-    create_vulkan_command_buffers(device);
+    create_vulkan_command_buffers(device, command_pool);
     create_vulkan_sync_objects(device);
 
     draw_frame(device, swapchain, render_pass);
