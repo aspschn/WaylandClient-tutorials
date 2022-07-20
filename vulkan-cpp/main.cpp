@@ -85,6 +85,9 @@ VkPipeline vulkan_graphics_pipeline = NULL;
 // Vertex buffer.
 VkBuffer vk_vertex_buffer = NULL;
 VkDeviceMemory vk_vertex_buffer_memory = NULL;
+// Input buffer.
+VkBuffer vk_index_buffer = NULL;
+VkDeviceMemory vk_index_buffer_memory = NULL;
 // Command buffer.
 VkCommandBufferAllocateInfo vk_command_buffer_allocate_info;
 VkCommandBuffer *vk_command_buffers = NULL;
@@ -101,6 +104,9 @@ vk::Vertex vertices[3] = {
     {{ 0.0f, -0.5f }, { 1.0f, 1.0f, 0.0f }},
     {{ 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f }},
     {{ -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }},
+};
+uint16_t indices[3] = {
+    0, 1, 2,
 };
 uint32_t current_frame = 0;
 
@@ -502,7 +508,7 @@ static void create_vulkan_vertex_buffer(
 
     VkDeviceSize buffer_size = sizeof(vertices[0]) * 3;
     VkBuffer staging_buffer;
-    VkDeviceMemory staging_buffer_memory;
+    VkDeviceMemory staging_buffer_memory = NULL;
 
     VkBufferUsageFlags staging_buffer_usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     VkMemoryPropertyFlags staging_buffer_properties =
@@ -521,6 +527,9 @@ static void create_vulkan_vertex_buffer(
     result = vkMapMemory(device->vk_device(), staging_buffer_memory,
         0, buffer_size,
         0, &data);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to map staging buffer memory\n");
+    }
     fprintf(stderr, "Staging buffer memory mapped.\n");
     memcpy(data, vertices, buffer_size);
     vkUnmapMemory(device->vk_device(), staging_buffer_memory);
@@ -533,6 +542,59 @@ static void create_vulkan_vertex_buffer(
         &vk_vertex_buffer,
         &vk_vertex_buffer_memory);
     fprintf(stderr, "Vertex buffer created.\n");
+
+    // Copy buffer.
+    copy_buffer(device, command_pool,
+        staging_buffer, vk_vertex_buffer,
+        buffer_size);
+
+    vkDestroyBuffer(device->vk_device(), staging_buffer, NULL);
+    vkFreeMemory(device->vk_device(), staging_buffer_memory, NULL);
+}
+
+static void create_vulkan_index_buffer(
+        std::shared_ptr<vk::Instance> instance,
+        std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::CommandPool> command_pool)
+{
+    VkResult result;
+
+    VkDeviceSize buffer_size = sizeof(indices[0]) * 3;
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory = NULL;
+
+    VkBufferUsageFlags staging_buffer_usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    VkMemoryPropertyFlags staging_buffer_properties =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    create_buffer(instance, device,
+        buffer_size,
+        staging_buffer_usage,
+        staging_buffer_properties,
+        &staging_buffer,
+        &staging_buffer_memory);
+    fprintf(stderr, "Staging buffer for index created.\n");
+
+    //
+    void *data = NULL;
+    result = vkMapMemory(device->vk_device(), staging_buffer_memory,
+        0, buffer_size,
+        0, &data);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to map staging buffer memory\n");
+    }
+    fprintf(stderr, "Staging buffer memory mapped.\n");
+    memcpy(data, vertices, buffer_size);
+    vkUnmapMemory(device->vk_device(), staging_buffer_memory);
+    fprintf(stderr, "Staging buffer memory unmapped.\n");
+
+    create_buffer(instance, device,
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &vk_index_buffer,
+        &vk_index_buffer_memory);
+    fprintf(stderr, "Index buffer created.\n");
 
     // Copy buffer.
     copy_buffer(device, command_pool,
@@ -685,6 +747,8 @@ static void record_command_buffer(VkCommandBuffer command_buffer,
         0,
     };
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+    vkCmdBindIndexBuffer(command_buffer, vk_index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
     //===============
@@ -934,6 +998,7 @@ int main(int argc, char *argv[])
     auto command_pool = std::make_shared<vk::CommandPool>(device);
 
     create_vulkan_vertex_buffer(instance, device, command_pool);
+    create_vulkan_index_buffer(instance, device, command_pool);
     create_vulkan_command_buffers(device, command_pool);
     create_vulkan_sync_objects(device);
 
