@@ -341,38 +341,43 @@ static void create_vulkan_graphics_pipeline(std::shared_ptr<vk::Device> device,
     */
 }
 
-
-static void create_vulkan_vertex_buffer(
+static void create_buffer(
         std::shared_ptr<vk::Instance> instance,
-        std::shared_ptr<vk::Device> device)
+        std::shared_ptr<vk::Device> device,
+        VkDeviceSize size,
+        VkBufferUsageFlags usage,
+        VkMemoryPropertyFlags properties,
+        VkBuffer *buffer,
+        VkDeviceMemory *buffer_memory)
 {
     VkResult result;
 
     VkBufferCreateInfo create_info;
     create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    create_info.size = sizeof(vertices[0]) * 3;
-    create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    create_info.size = size;
+    create_info.usage = usage;
     create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
+    // Zero or null.
     create_info.flags = 0;
     create_info.pNext = NULL;
     create_info.queueFamilyIndexCount = 0;
     create_info.pQueueFamilyIndices = NULL;
 
-    result = vkCreateBuffer(device->vk_device(), &create_info, NULL,
-        &vk_vertex_buffer);
+    result = vkCreateBuffer(device->vk_device(), &create_info,
+        NULL, buffer);
     if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to create vertex buffer!\n");
+        fprintf(stderr, "Failed to create buffer!\n");
+        return;
     }
-    fprintf(stderr, "Vertex buffer created.\n");
 
-    // Memory.
-    VkMemoryRequirements memory_requirements;
-    memory_requirements.size = 0;
-    memory_requirements.alignment = 0;
-    memory_requirements.memoryTypeBits = 0;
-    vkGetBufferMemoryRequirements(device->vk_device(), vk_vertex_buffer,
-        &memory_requirements);
+    VkMemoryRequirements requirements;
+    vkGetBufferMemoryRequirements(device->vk_device(),
+        *buffer, &requirements);
+    fprintf(stderr, "Buffer memory requirements:\n");
+    fprintf(stderr, " - size: %ld\n", requirements.size);
+    fprintf(stderr, " - alignment: %ld\n", requirements.alignment);
+    fprintf(stderr, " - memoryTypeBits: %d\n", requirements.memoryTypeBits);
 
     // Find memory type.
     VkPhysicalDeviceMemoryProperties memory_properties;
@@ -381,9 +386,7 @@ static void create_vulkan_vertex_buffer(
     fprintf(stderr, "Memory properties - memoryTypeCount: %d\n",
         memory_properties.memoryTypeCount);
 
-    uint32_t type_filter = memory_requirements.memoryTypeBits;
-    VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    uint32_t type_filter = requirements.memoryTypeBits;
     uint32_t memory_type = 0;
     for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
         if ((type_filter & (1 << i)) &&
@@ -396,28 +399,148 @@ static void create_vulkan_vertex_buffer(
 
     VkMemoryAllocateInfo allocate_info;
     allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocate_info.allocationSize = memory_requirements.size;
+    allocate_info.allocationSize = requirements.size;
     allocate_info.memoryTypeIndex = memory_type;
 
+    // Zero or null.
     allocate_info.pNext = NULL;
 
     result = vkAllocateMemory(device->vk_device(), &allocate_info,
-        NULL, &vk_vertex_buffer_memory);
+        NULL, buffer_memory);
     if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to allocate vertex buffer memory!\n");
+        fprintf(stderr, "Failed to allocate buffer memory!\n");
+        return;
+    }
+    fprintf(stderr, "Buffer memory allocated.\n");
+
+    vkBindBufferMemory(device->vk_device(), *buffer, *buffer_memory, 0);
+}
+
+static void copy_buffer(
+        std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::CommandPool> command_pool,
+        VkBuffer src_buffer,
+        VkBuffer dst_buffer,
+        VkDeviceSize size)
+{
+    VkResult result;
+
+    // Allocate command buffers.
+    VkCommandBufferAllocateInfo allocate_info;
+    allocate_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocate_info.commandPool = command_pool->vk_command_pool();
+    allocate_info.commandBufferCount = 1;
+
+    allocate_info.pNext = NULL;
+
+    VkCommandBuffer command_buffer;
+    result = vkAllocateCommandBuffers(device->vk_device(), &allocate_info,
+        &command_buffer);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to allocate command buffers!\n");
+        return;
     }
 
-    result = vkBindBufferMemory(device->vk_device(),
-        vk_vertex_buffer, vk_vertex_buffer_memory, 0);
+    // Begin command buffer.
+    VkCommandBufferBeginInfo begin_info;
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    result = vkBeginCommandBuffer(command_buffer, &begin_info);
     if (result != VK_SUCCESS) {
-        fprintf(stderr, "Failed to bind buffer memory!\n");
+        fprintf(stderr, "Failed to begin command buffer!\n");
+        return;
     }
 
-    void *data;
-    vkMapMemory(device->vk_device(), vk_vertex_buffer_memory, 0,
-        create_info.size, 0, &data);
-    memcpy(data, vertices, create_info.size);
-    vkUnmapMemory(device->vk_device(), vk_vertex_buffer_memory);
+    //=================
+    // Begin Copy
+    //=================
+
+    VkBufferCopy copy_region;
+    copy_region.size = size;
+    vkCmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, &copy_region);
+
+    //=================
+    // End Copy
+    //=================
+
+    result = vkEndCommandBuffer(command_buffer);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to end command buffer!\n");
+        return;
+    }
+
+    // Submit.
+    VkSubmitInfo submit_info;
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffer;
+
+    // Zero or null.
+    submit_info.pNext = NULL;
+    submit_info.signalSemaphoreCount = 0;
+    submit_info.pSignalSemaphores = NULL;
+    submit_info.waitSemaphoreCount = 0;
+    submit_info.pWaitSemaphores = NULL;
+    submit_info.pWaitDstStageMask = NULL;
+
+    vkQueueSubmit(device->graphics_queue(), 1, &submit_info, VK_NULL_HANDLE);
+    vkQueueWaitIdle(device->graphics_queue());
+
+    vkFreeCommandBuffers(device->vk_device(),
+        command_pool->vk_command_pool(),
+        1, &command_buffer);
+}
+
+static void create_vulkan_vertex_buffer(
+        std::shared_ptr<vk::Instance> instance,
+        std::shared_ptr<vk::Device> device,
+        std::shared_ptr<vk::CommandPool> command_pool)
+{
+    VkResult result;
+
+    VkDeviceSize buffer_size = sizeof(vertices[0]) * 3;
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+
+    VkBufferUsageFlags staging_buffer_usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    VkMemoryPropertyFlags staging_buffer_properties =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+        | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    create_buffer(instance, device,
+        buffer_size,
+        staging_buffer_usage,
+        staging_buffer_properties,
+        &staging_buffer,
+        &staging_buffer_memory);
+    fprintf(stderr, "Staging buffer created.\n");
+
+    //
+    void *data = NULL;
+    result = vkMapMemory(device->vk_device(), staging_buffer_memory,
+        0, buffer_size,
+        0, &data);
+    fprintf(stderr, "Staging buffer memory mapped.\n");
+    memcpy(data, vertices, buffer_size);
+    vkUnmapMemory(device->vk_device(), staging_buffer_memory);
+    fprintf(stderr, "Staging buffer memory unmapped.\n");
+
+    create_buffer(instance, device,
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &vk_vertex_buffer,
+        &vk_vertex_buffer_memory);
+    fprintf(stderr, "Vertex buffer created.\n");
+
+    // Copy buffer.
+    copy_buffer(device, command_pool,
+        staging_buffer, vk_vertex_buffer,
+        buffer_size);
+
+    vkDestroyBuffer(device->vk_device(), staging_buffer, NULL);
+    vkFreeMemory(device->vk_device(), staging_buffer_memory, NULL);
 }
 
 static void create_vulkan_command_buffers(std::shared_ptr<vk::Device> device,
@@ -810,7 +933,7 @@ int main(int argc, char *argv[])
     // Command pool.
     auto command_pool = std::make_shared<vk::CommandPool>(device);
 
-    create_vulkan_vertex_buffer(instance, device);
+    create_vulkan_vertex_buffer(instance, device, command_pool);
     create_vulkan_command_buffers(device, command_pool);
     create_vulkan_sync_objects(device);
 
