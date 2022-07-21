@@ -138,6 +138,7 @@ int init(GLuint *program_object)
         fprintf(stderr, "glCreateProgram() - program_object is 0\n");
         return 0;
     }
+    fprintf(stderr, "Program object created.\n");
 
     glAttachShader(*program_object, vertex_shader);
     glAttachShader(*program_object, fragment_shader);
@@ -349,6 +350,12 @@ static void create_window()
     }
 }
 
+static void gl_info()
+{
+    const GLubyte *version = glGetString(GL_VERSION);
+    fprintf(stderr, "OpenGL version: %s\n", version);
+}
+
 static void init_egl()
 {
     EGLint major, minor, count, n, size;
@@ -365,13 +372,15 @@ static void init_egl()
         EGL_ALPHA_SIZE,
         8,
         EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_ES2_BIT,
+        EGL_OPENGL_BIT,
         EGL_NONE,
     };
 
     static const EGLint context_attribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION,
-        2,
+        EGL_CONTEXT_MAJOR_VERSION,
+        4,
+        EGL_CONTEXT_MINOR_VERSION,
+        6,
         EGL_NONE,
     };
 
@@ -382,6 +391,8 @@ static void init_egl()
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
+
+    eglBindAPI(EGL_OPENGL_API);
 
     if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
         fprintf(stderr, "Can't initialise egl display.\n");
@@ -401,11 +412,9 @@ static void init_egl()
         printf("Buffersize for config %d is %d\n", i, size);
         eglGetConfigAttrib(egl_display, configs[i], EGL_RED_SIZE, &size);
         printf("Red size for config %d is %d.\n", i, size);
-
-        // Just choose the first one.
-        egl_conf = configs[i];
-        break;
     }
+    // Just choose the first one.
+    egl_conf = configs[0];
 
     egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
         context_attribs);
@@ -480,8 +489,11 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(display);
 
     // create_opaque_region();
+    glewInit();
+
     init_egl();
     create_window();
+    gl_info();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
