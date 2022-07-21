@@ -1,4 +1,4 @@
-SOURCES += main.c
+SOURCES += main.cpp
 
 CONFIG += link_pkgconfig
 

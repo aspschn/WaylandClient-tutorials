@@ -44,7 +44,7 @@ void load_image()
     image_width = cairo_image_surface_get_width(cairo_surface);
     image_height = cairo_image_surface_get_height(cairo_surface);
     image_size = sizeof(uint32_t) * (image_width * image_height);
-    image_data = malloc(image_size);
+    image_data = (uint32_t*)malloc(image_size);
     memcpy(image_data, cairo_image_surface_get_data(cairo_surface), image_size);
 
     // Color correct.
@@ -86,7 +86,7 @@ GLuint load_shader(const char *shader_src, GLenum type)
 
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_len);
         if (info_len > 1) {
-            char *info_log = malloc(sizeof(char));
+            char *info_log = (char*)malloc(sizeof(char));
             glGetShaderInfoLog(shader, info_len, NULL, info_log);
             fprintf(stderr, "Error compiling shader: %s\n", info_log);
             free(info_log);
@@ -125,15 +125,15 @@ int init(GLuint *program_object)
         "uniform sampler2D ourTexture;  \n"
         "void main()                    \n"
         "{                              \n"
-        "    fragColor = texture(ourTexture, TexCoord); \n"
+        "    fragColor = texture(ourTexture, TexCoord) * vec4(ourColor, 1.0); \n"
         "}                              \n";
 
     GLuint vertex_shader;
     GLuint fragment_shader;
     GLint linked;
 
-    vertex_shader = load_shader(vertex_shader_str, GL_VERTEX_SHADER);
-    fragment_shader = load_shader(fragment_shader_str, GL_FRAGMENT_SHADER);
+    vertex_shader = load_shader((const char*)vertex_shader_str, GL_VERTEX_SHADER);
+    fragment_shader = load_shader((const char*)fragment_shader_str, GL_FRAGMENT_SHADER);
 
     fprintf(stderr, "Vertex shader: %d\n", vertex_shader);
     fprintf(stderr, "Fragment shader: %d\n", fragment_shader);
@@ -160,7 +160,7 @@ int init(GLuint *program_object)
         GLint info_len = 0;
         glGetProgramiv(*program_object, GL_INFO_LOG_LENGTH, &info_len);
         if (info_len > 1) {
-            char *info_log = malloc(sizeof(char) * info_len);
+            char *info_log = (char*)malloc(sizeof(char) * info_len);
 
             glGetProgramInfoLog(*program_object, info_len, NULL, info_log);
             fprintf(stderr, "Error linking program: %s\n", info_log);
@@ -183,78 +183,6 @@ int init(GLuint *program_object)
 static void xdg_wm_base_ping_handler(void *data,
         struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 {
-    GLfloat vVertices[] = {
-         0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,   1.0f, 1.0f,     // top right
-         0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 0.0f,   1.0f, 0.0f,     // bottom right
-        -0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 0.0f,   0.0f, 0.0f,     // bottom left
-        -0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,   0.0f, 1.0f,     // top left
-    };
-    GLuint indices[] = {
-        0, 1, 3,    // first triangle
-        1, 2, 3,    // second triangle
-    };
-
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
-
-    // Set the viewport.
-    glViewport(0, 0, 480, 360);
-
-    // Clear the color buffer.
-    glClearColor(0.5, 0.5, 0.5, 0.8);
-    glClear(GL_COLOR_BUFFER_BIT);
-    // Use the program object.
-    glUseProgram(program_object);
-
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint ebo;
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vVertices), vVertices, GL_STATIC_DRAW);
-
-    // Position attribute.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute.
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(1);
-    // Texture coord attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
-    glEnableVertexAttribArray(2);
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        image_width,
-        image_height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        image_data
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glBindVertexArray(vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-
-    eglSwapBuffers(egl_display, egl_surface);
-
     xdg_wm_base_pong(xdg_wm_base, serial);
 }
 
@@ -297,17 +225,17 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
 {
     if (strcmp(interface, "wl_compositor") == 0) {
         fprintf(stderr, "Interface is <wl_compositor>.\n");
-        compositor = wl_registry_bind(
+        compositor = (struct wl_compositor*)wl_registry_bind(
             registry,
             id,
             &wl_compositor_interface,
             version
         );
     } else if (strcmp(interface, "xdg_wm_base") == 0) {
-        xdg_wm_base = wl_registry_bind(registry,
+        xdg_wm_base = (struct xdg_wm_base*)wl_registry_bind(registry,
             id, &xdg_wm_base_interface, 1);
     } else if (strcmp(interface, "wl_subcompositor") == 0) {
-        subcompositor = wl_registry_bind(registry,
+        subcompositor = (struct wl_subcompositor*)wl_registry_bind(registry,
             id, &wl_subcompositor_interface, 1);
     } else {
         printf("(%d) Got a registry event for <%s> id <%d>\n",
@@ -408,7 +336,7 @@ static void init_egl()
     eglGetConfigs(egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
-    configs = calloc(count, sizeof *configs);
+    configs = (void**)calloc(count, sizeof *configs);
 
     eglChooseConfig(egl_display, config_attribs, configs, count, &n);
 
@@ -423,6 +351,81 @@ static void init_egl()
 
     egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
         context_attribs);
+}
+
+static void draw_frame()
+{
+    GLfloat vVertices[] = {
+         0.5f,  0.5f,  0.0f,    1.0f, 0.0f, 0.0f,   1.0f, 1.0f,     // top right
+         0.5f, -0.5f,  0.0f,    0.0f, 1.0f, 0.0f,   1.0f, 0.0f,     // bottom right
+        -0.5f, -0.5f,  0.0f,    0.0f, 0.0f, 1.0f,   0.0f, 0.0f,     // bottom left
+        -0.5f,  0.5f,  0.0f,    0.0f, 0.0f, 0.0f,   0.0f, 1.0f,     // top left
+    };
+    GLuint indices[] = {
+        0, 1, 3,    // first triangle
+        1, 2, 3,    // second triangle
+    };
+
+    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+
+    // Set the viewport.
+    glViewport(0, 0, 480, 360);
+
+    // Clear the color buffer.
+    glClearColor(0.5, 0.5, 0.5, 0.8);
+    glClear(GL_COLOR_BUFFER_BIT);
+    // Use the program object.
+    glUseProgram(program_object);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint ebo;
+    glGenBuffers(1, &ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vVertices), vVertices, GL_STATIC_DRAW);
+
+    // Position attribute.
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Color attribute.
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+    // Texture coord attribute
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (void*)(6 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(2);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        image_width,
+        image_height,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        image_data
+    );
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glBindVertexArray(vao);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+
+    eglSwapBuffers(egl_display, egl_surface);
 }
 
 static void get_server_references()
@@ -517,6 +520,8 @@ int main(int argc, char *argv[])
     }
 
     wl_surface_commit(surface);
+
+    draw_frame();
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
