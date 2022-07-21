@@ -5,6 +5,7 @@
 #include <wayland-egl.h>
 #include <EGL/egl.h>
 //#include <GLES3/gl3.h>
+#define GLEW_EGL
 #include <GL/glew.h>
 
 #include <cairo.h>
@@ -70,6 +71,7 @@ GLuint load_shader(const char *shader_src, GLenum type)
     if (shader == 0) {
         return 0;
     }
+    fprintf(stderr, "Shader: %d\n", shader);
 
     // Load the shader source.
     glShaderSource(shader, 1, &shader_src, NULL);
@@ -100,7 +102,7 @@ GLuint load_shader(const char *shader_src, GLenum type)
 int init(GLuint *program_object)
 {
     GLbyte vertex_shader_str[] =
-        "#version 300 es                \n"
+        "#version 330 core              \n"
 //        "attribute vec4 vPosition;      \n"
         "layout (location = 0) in vec3 aPos;        \n"
         "layout (location = 1) in vec3 aColor;      \n"
@@ -115,7 +117,7 @@ int init(GLuint *program_object)
         "}                                      \n";
 
     GLbyte fragment_shader_str[] =
-        "#version 300 es                \n"
+        "#version 330 core              \n"
         "precision mediump float;       \n"
         "out vec4 fragColor;            \n"
         "in vec3 ourColor;              \n"
@@ -132,6 +134,9 @@ int init(GLuint *program_object)
 
     vertex_shader = load_shader(vertex_shader_str, GL_VERTEX_SHADER);
     fragment_shader = load_shader(fragment_shader_str, GL_FRAGMENT_SHADER);
+
+    fprintf(stderr, "Vertex shader: %d\n", vertex_shader);
+    fprintf(stderr, "Fragment shader: %d\n", fragment_shader);
 
     *program_object = glCreateProgram();
     if (*program_object == 0) {
@@ -489,10 +494,23 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(display);
 
     // create_opaque_region();
-    glewInit();
+    if (!GL_VERSION_4_6) {
+        fprintf(stderr, "No GL_VERSION_4_6!\n");
+    }
+    fprintf(stderr, "Has GL_VERSION_4_6\n");
 
     init_egl();
+
     create_window();
+
+    fprintf(stderr, "GLEW experimental: %d\n", glewExperimental);
+    GLenum err = glewInit();
+    if (err != GLEW_OK && err != GLEW_ERROR_NO_GLX_DISPLAY) {
+        fprintf(stderr, "Failed to init GLEW! err: %d %s\n", err,
+            glewGetErrorString(err));
+        exit(1);
+    }
+
     gl_info();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
