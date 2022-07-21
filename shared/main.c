@@ -7,9 +7,6 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-// Cairo
-#include <cairo.h>
-
 #include <wayland-client.h>
 
 #include "xdg-shell.h"
@@ -310,32 +307,6 @@ int main(int argc, char *argv[])
         *pixel = 0xde000000;
         ++pixel;
     }
-
-    // Cairo
-    cairo_surface_t *cairo_surface = cairo_image_surface_create_from_png(
-        "nyan-cat.png");
-    if (cairo_surface_status(cairo_surface) != CAIRO_STATUS_SUCCESS) {
-        fprintf(stderr, "Failed to load PNG image.\n");
-        exit(1);
-    }
-    unsigned char *image_data = cairo_image_surface_get_data(cairo_surface);
-    int image_width = cairo_image_surface_get_width(cairo_surface);
-    int image_height = cairo_image_surface_get_height(cairo_surface);
-
-    uint32_t *image_pixel = (uint32_t*)image_data;
-    uint32_t *target = (uint32_t*)shm_data;
-    for (int i = 0; i < image_height; ++i) {
-        for (int j = 0; j < image_width; ++j) {
-            *target = *image_pixel++;
-            ++target;
-            // Because our surface is larget than image, skip to next line.
-            if (j == image_width - 1) {
-                target += (480 - image_width);
-            }
-        }
-    }
-
-    cairo_surface_destroy(cairo_surface);
 
     // Display loop.
     while (wl_display_dispatch(display) != -1) {

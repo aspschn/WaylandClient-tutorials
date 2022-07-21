@@ -1,5 +1,5 @@
-PKG_CONFIG=`pkg-config --cflags --libs cairo`
+PKG_CONFIGS=`pkg-config --cflags --libs cairo` `pkg-config --cflags --libs pangocairo`
 default:
 	wayland-scanner client-header /usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml xdg-shell.h
 	wayland-scanner public-code /usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml xdg-shell.c
-	gcc main.c xdg-shell.c -lwayland-client $(PKG_CONFIG)
+	gcc $(PKG_CONFIGS) -lwayland-client -lwayland-egl -lEGL -lGLESv2 main.c utils.c xdg-shell.c
