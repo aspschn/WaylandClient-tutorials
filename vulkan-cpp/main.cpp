@@ -772,7 +772,7 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     VkResult result;
 
     vkWaitForFences(device->vk_device(), 1, &vk_in_flight_fences[current_frame],
-        VK_TRUE, UINT64_MAX);
+        VK_TRUE, 2048);
     vkResetFences(device->vk_device(), 1, &vk_in_flight_fences[current_frame]);
 
     uint32_t image_index;
@@ -843,8 +843,11 @@ void draw_frame(std::shared_ptr<vk::Device> device,
     present_info.pResults = NULL;
 
     fprintf(stderr, "vkQueuePresentKHR() - queue: %p\n", device->present_queue());
-    vkQueuePresentKHR(device->present_queue(), &present_info);
-    fprintf(stderr, " - Called.\n");
+    result = vkQueuePresentKHR(device->present_queue(), &present_info);
+    if (result != VK_SUCCESS) {
+        fprintf(stderr, "Failed to present queue!\n");
+        return;
+    }
 
     current_frame += (current_frame + 1) & MAX_FRAMES_IN_FLIGHT;
 }
