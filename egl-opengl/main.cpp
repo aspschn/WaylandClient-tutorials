@@ -99,8 +99,8 @@ std::vector<glm::vec3> Object::vertices() const
 
     // Top left.
     v.push_back(glm::vec3(
-        -(this->_x / WINDOW_WIDTH),
-        this->_y / WINDOW_HEIGHT,
+        -(1.0f - ((float)this->_x / WINDOW_WIDTH)),
+        (1.0f - ((float)this->_y / WINDOW_HEIGHT)),
         0.0f
     ));
 
@@ -152,11 +152,16 @@ GLbyte fragment_shader_str[] =
     "    fragColor = texture(ourTexture, TexCoord); \n"
     "}                              \n";
 
+const uint32_t x = 100;
+const uint32_t y = 100;
+const uint32_t width = 100;
+const uint32_t height = 100;
+
 std::vector<glm::vec3> vertices = {
-    { 0.3f,  0.5f, 0.0f }, // Top right
+    {  0.3f,  0.5f, 0.0f }, // Top right
     {  0.5f, -0.5f, 0.0f }, // Bottom right
     { -0.5f, -0.5f, 0.0f }, // Bottom left
-    { -0.3f,  0.5f, 0.0f }, // Top left
+    { -(1.0f - ((float)x / WINDOW_WIDTH)),  1.0f - ((float)y / WINDOW_HEIGHT), 0.0f }, // Top left
 };
 
 glm::vec3 colors[] = {
