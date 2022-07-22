@@ -8,6 +8,8 @@
 #define GLEW_EGL
 #include <GL/glew.h>
 
+#include <glm/glm.hpp>
+
 #include <cairo.h>
 
 #include "xdg-shell.h"
@@ -73,10 +75,10 @@ GLfloat vertices[] = {
     -0.5f,  0.5f, 0.0f, // Top left
 };
 
-GLfloat colors[] = {
-    1.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f,
-    0.0f, 0.0f, 1.0f,
+glm::vec3 colors[] = {
+    { 1.0f, 1.0f, 1.0f, },
+    { 0.0f, 1.0f, 0.0f, },
+    { 0.0f, 0.0f, 1.0f, },
 };
 
 GLfloat tex_coords[] = {
