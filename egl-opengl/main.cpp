@@ -183,6 +183,7 @@ int init(GLuint *program_object)
 static void xdg_wm_base_ping_handler(void *data,
         struct xdg_wm_base *xdg_wm_base, uint32_t serial)
 {
+    (void)data;
     xdg_wm_base_pong(xdg_wm_base, serial);
 }
 
@@ -193,6 +194,7 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 static void xdg_surface_configure_handler(void *data,
         struct xdg_surface *xdg_surface, uint32_t serial)
 {
+    (void)data;
     fprintf(stderr, "xdg_surface_configure_handler()\n");
     xdg_surface_ack_configure(xdg_surface, serial);
 }
@@ -205,11 +207,18 @@ static void xdg_toplevel_configure_handler(void *data,
         struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height,
         struct wl_array *states)
 {
+    (void)data;
+    (void)xdg_toplevel;
+    (void)width;
+    (void)height;
+    (void)states;
 }
 
 static void xdg_toplevel_close_handler(void *data,
         struct xdg_toplevel *xdg_toplevel)
 {
+    (void)data;
+    (void)xdg_toplevel;
 }
 
 const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -223,6 +232,8 @@ const struct xdg_toplevel_listener xdg_toplevel_listener = {
 static void global_registry_handler(void *data, struct wl_registry *registry,
         uint32_t id, const char *interface, uint32_t version)
 {
+    (void)data;
+
     if (strcmp(interface, "wl_compositor") == 0) {
         fprintf(stderr, "Interface is <wl_compositor>.\n");
         compositor = (struct wl_compositor*)wl_registry_bind(
@@ -246,6 +257,9 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
 static void global_registry_remover(void *data, struct wl_registry *registry,
         uint32_t id)
 {
+    (void)data;
+    (void)registry;
+    (void)id;
     printf("Got a registry losing event for <%d>\n", id);
 }
 
@@ -253,35 +267,6 @@ static const struct wl_registry_listener registry_listener = {
     global_registry_handler,
     global_registry_remover
 };
-
-static void create_window()
-{
-    egl_window = wl_egl_window_create(surface, 480, 360);
-    if (egl_window == EGL_NO_SURFACE) {
-        fprintf(stderr, "Can't create egl window.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created egl window.\n");
-    }
-
-    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
-        NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
-        fprintf(stderr, "Made current.\n");
-    } else {
-        fprintf(stderr, "Made current failed.\n");
-    }
-
-    glClearColor(1.0, 1.0, 0.0, 0.5);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glFlush();
-
-    if (eglSwapBuffers(egl_display, egl_surface)) {
-        fprintf(stderr, "Swapped buffers.\n");
-    } else {
-        fprintf(stderr, "Swapped buffers failed.\n");
-    }
-}
 
 static void gl_info()
 {
@@ -351,6 +336,35 @@ static void init_egl()
 
     egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
         context_attribs);
+}
+
+static void create_window()
+{
+    egl_window = wl_egl_window_create(surface, 480, 360);
+    if (egl_window == EGL_NO_SURFACE) {
+        fprintf(stderr, "Can't create egl window.\n");
+        exit(1);
+    } else {
+        fprintf(stderr, "Created egl window.\n");
+    }
+
+    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
+        NULL);
+    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
+        fprintf(stderr, "Made current.\n");
+    } else {
+        fprintf(stderr, "Made current failed.\n");
+    }
+
+    glClearColor(1.0, 1.0, 0.0, 0.5);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glFlush();
+
+    if (eglSwapBuffers(egl_display, egl_surface)) {
+        fprintf(stderr, "Swapped buffers.\n");
+    } else {
+        fprintf(stderr, "Swapped buffers failed.\n");
+    }
 }
 
 static void draw_frame()
