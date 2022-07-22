@@ -154,13 +154,13 @@ GLbyte fragment_shader_str[] =
 
 const uint32_t x = 100;
 const uint32_t y = 100;
-const uint32_t width = 100;
+const uint32_t width = 50;
 const uint32_t height = 100;
 
 std::vector<glm::vec3> vertices = {
-    {  0.3f,  0.5f, 0.0f }, // Top right
-    {  0.5f, -0.5f, 0.0f }, // Bottom right
-    { -0.5f, -0.5f, 0.0f }, // Bottom left
+    {  ((float)width / WINDOW_WIDTH),  1.0f - ((float)height / WINDOW_HEIGHT), 0.0f }, // Top right
+    {  ((float)width / WINDOW_WIDTH), -(1.0f - ((float)height / WINDOW_HEIGHT)), 0.0f }, // Bottom right
+    { -(1.0f - ((float)x / WINDOW_WIDTH)), -(1.0f - ((float)height / WINDOW_HEIGHT)), 0.0f }, // Bottom left
     { -(1.0f - ((float)x / WINDOW_WIDTH)),  1.0f - ((float)y / WINDOW_HEIGHT), 0.0f }, // Top left
 };
 
