@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// C++
+#include <vector>
+
 #include <wayland-client.h>
 #include <wayland-egl.h>
 #include <EGL/egl.h>
@@ -13,6 +17,9 @@
 #include <cairo.h>
 
 #include "xdg-shell.h"
+
+#define WINDOW_WIDTH 480
+#define WINDOW_HEIGHT 360
 
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
@@ -37,6 +44,68 @@ uint32_t image_width;
 uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
+
+class Object
+{
+public:
+    Object(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+
+    std::vector<glm::vec3> vertices() const;
+
+private:
+    uint32_t _x;
+    uint32_t _y;
+    uint32_t _width;
+    uint32_t _height;
+
+    glm::vec3 _vertices[4];
+};
+
+//====================
+// Object Methods
+//====================
+Object::Object(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+{
+    this->_x = x;
+    this->_y = y;
+    this->_width = width;
+    this->_height = height;
+}
+
+std::vector<glm::vec3> Object::vertices() const
+{
+    std::vector<glm::vec3> v;
+
+    // Top right.
+    v.push_back(glm::vec3(
+        this->_width / WINDOW_WIDTH,
+        this->_height / WINDOW_HEIGHT,
+        0.0f
+    ));
+
+    // Bottom right.
+    v.push_back(glm::vec3(
+        this->_width / WINDOW_WIDTH,
+        -(this->_height / WINDOW_HEIGHT),
+        0.0f
+    ));
+
+    // Bottom left.
+    v.push_back(glm::vec3(
+        -(this->_width / WINDOW_WIDTH),
+        -(this->_height / WINDOW_HEIGHT),
+        0.0f
+    ));
+
+    // Top left.
+    v.push_back(glm::vec3(
+        -(this->_x / WINDOW_WIDTH),
+        this->_y / WINDOW_HEIGHT,
+        0.0f
+    ));
+
+    return v;
+}
 
 /*
 GLbyte vertex_shader_str[] =
@@ -83,11 +152,11 @@ GLbyte fragment_shader_str[] =
     "    fragColor = texture(ourTexture, TexCoord); \n"
     "}                              \n";
 
-GLfloat vertices[] = {
-     0.3f,  0.5f, 0.0f, // Top right
-     0.5f, -0.5f, 0.0f, // Bottom right
-    -0.5f, -0.5f, 0.0f, // Bottom left
-    -0.3f,  0.5f, 0.0f, // Top left
+std::vector<glm::vec3> vertices = {
+    { 0.3f,  0.5f, 0.0f }, // Top right
+    {  0.5f, -0.5f, 0.0f }, // Bottom right
+    { -0.5f, -0.5f, 0.0f }, // Bottom left
+    { -0.3f,  0.5f, 0.0f }, // Top left
 };
 
 glm::vec3 colors[] = {
@@ -379,7 +448,7 @@ static void init_egl()
 
 static void create_window()
 {
-    egl_window = wl_egl_window_create(surface, 480, 360);
+    egl_window = wl_egl_window_create(surface, WINDOW_WIDTH, WINDOW_HEIGHT);
     if (egl_window == EGL_NO_SURFACE) {
         fprintf(stderr, "Can't create egl window.\n");
         exit(1);
@@ -438,7 +507,10 @@ static void draw_frame()
 
     // Position attribute.
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER,
+        sizeof(glm::vec3) * vertices.size(),
+        vertices.data(),
+        GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
