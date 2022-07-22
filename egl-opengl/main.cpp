@@ -38,6 +38,7 @@ uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
 
+/*
 GLbyte vertex_shader_str[] =
     "#version 330 core              \n"
 //        "attribute vec4 vPosition;      \n"
@@ -52,27 +53,41 @@ GLbyte vertex_shader_str[] =
     "    ourColor = aColor;                 \n"
     "    TexCoord = aTexCoord;              \n"
     "}                                      \n";
+*/
+
+GLbyte vertex_shader_str[] =
+    "#version 330 core              \n"
+//        "attribute vec4 vPosition;      \n"
+    "layout (location = 0) in vec3 aPos;        \n"
+    "layout (location = 1) in vec2 aTexCoord;   \n"
+    ""
+    "out vec2 TexCoord;             \n"
+    ""
+    "void main()                            \n"
+    "{                                      \n"
+    "    gl_Position = vec4(aPos, 1.0);     \n"
+    "    TexCoord = aTexCoord;              \n"
+    "}                                      \n";
 
 GLbyte fragment_shader_str[] =
     "#version 330 core              \n"
     "precision mediump float;       \n"
     "out vec4 fragColor;            \n"
     "\n"
-    "in vec3 ourColor;              \n"
     "in vec2 TexCoord;              \n"
     "\n"
     "uniform sampler2D ourTexture;  \n"
     "\n"
     "void main()                    \n"
     "{                              \n"
-    "    fragColor = texture(ourTexture, TexCoord) * vec4(ourColor, 1.0); \n"
+    "    fragColor = texture(ourTexture, TexCoord); \n"
     "}                              \n";
 
 GLfloat vertices[] = {
-     0.5f,  1.0f, 0.0f, // Top right
+     0.3f,  0.5f, 0.0f, // Top right
      0.5f, -0.5f, 0.0f, // Bottom right
     -0.5f, -0.5f, 0.0f, // Bottom left
-    -0.5f,  0.5f, 0.0f, // Top left
+    -0.3f,  0.5f, 0.0f, // Top left
 };
 
 glm::vec3 colors[] = {
@@ -418,8 +433,8 @@ static void draw_frame()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    GLuint vbo[3];
-    glGenBuffers(3, vbo);
+    GLuint vbo[2];
+    glGenBuffers(2, vbo);
 
     // Position attribute.
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
@@ -428,17 +443,19 @@ static void draw_frame()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(0);
     // Color attribute.
+    /*
     glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(1);
+    */
     // Texture coord attribute
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
     glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(1);
 
     GLuint texture;
     glGenTextures(1, &texture);
