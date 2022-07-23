@@ -98,8 +98,6 @@ private:
     int32_t _y;
     uint32_t _width;
     uint32_t _height;
-
-    glm::vec3 _vertices[4];
 };
 
 //====================
