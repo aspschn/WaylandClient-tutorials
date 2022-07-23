@@ -14,6 +14,9 @@
 
 #include <glm/glm.hpp>
 
+#include <sys/time.h>
+#include <linux/input.h>
+
 #include <cairo.h>
 
 #include "xdg-shell.h"
@@ -46,6 +49,30 @@ uint32_t image_width;
 uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
+
+class KeyboardState {
+public:
+    uint32_t rate;
+    uint32_t delay;
+
+    bool pressed;       // Keyboard is pressed.
+    uint32_t key;       // Pressed key.
+    bool repeat;        // Keyboard is repeating.
+    bool processed;     // Key processed first time.
+    uint64_t time;
+    uint64_t pressed_time;  // Key pressed time in milliseconds.
+    uint64_t elapsed_time;  // Key elapsed time in milliseconds.
+
+    bool repeating() const
+    {
+        if (pressed_time == 0) {
+            return false;
+        }
+        return elapsed_time - pressed_time >= delay;
+    }
+};
+
+KeyboardState keyboard_state;
 
 namespace gl {
 
@@ -403,7 +430,15 @@ static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
     (void)time;
     (void)key;
     (void)state;
-    fprintf(stderr, "Key!\n");
+    fprintf(stderr, "Key! %d\n", key);
+
+    if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+        keyboard_state.pressed = true;
+        keyboard_state.key = key;
+    } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+        keyboard_state.pressed = false;
+        keyboard_state.key = key;
+    }
 }
 
 static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
@@ -428,8 +463,12 @@ static void keyboard_repeat_info_handler(void *data,
 {
     (void)data;
     (void)keyboard;
-    (void)rate;
-    (void)delay;
+    fprintf(stderr, "keyboard_repeat_info_handler()\n");
+    fprintf(stderr, " - rate: %d\n", rate);
+    fprintf(stderr, " - delay: %d\n", delay);
+
+    keyboard_state.rate = rate;
+    keyboard_state.delay = delay;
 }
 
 static const struct wl_keyboard_listener keyboard_listener = {
@@ -710,6 +749,33 @@ static void move_objects()
     }
 }
 
+static void process_keyboard()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+
+    if (keyboard_state.pressed == true) {
+        if (!keyboard_state.processed) {
+            keyboard_state.pressed_time = ms;
+        } else {
+            keyboard_state.elapsed_time = ms;
+        }
+        if (keyboard_state.repeating()) {
+            fprintf(stderr, "Key repeat!\n");
+        }
+        if (keyboard_state.key == KEY_ENTER && !keyboard_state.processed) {
+            fprintf(stderr, "Enter.\n");
+            objects.push_back(gl::Object(0, 0, 128, 128));
+            vectors.push_back(glm::ivec3(2, 2, 0));
+        }
+        keyboard_state.processed = true;
+    } else {
+        keyboard_state.processed = false;
+        keyboard_state.pressed_time = 0;
+    }
+}
+
 static void draw_frame()
 {
     GLuint indices[] = {
@@ -901,6 +967,8 @@ int main(int argc, char *argv[])
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
+        // Process keyboard state.
+        process_keyboard();
         // Move.
         move_objects();
 
