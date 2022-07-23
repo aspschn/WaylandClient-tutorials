@@ -52,10 +52,15 @@ class Object
 public:
     Object(int32_t x, int32_t y, uint32_t width, uint32_t height);
 
+    int32_t x() const;
+    int32_t y() const;
     int32_t viewport_x() const;
     int32_t viewport_y() const;
     uint32_t width() const;
     uint32_t height() const;
+
+    void set_x(int32_t x);
+    void set_y(int32_t y);
 
     std::vector<glm::vec3> vertices() const;
 
@@ -79,6 +84,16 @@ Object::Object(int32_t x, int32_t y, uint32_t width, uint32_t height)
     this->_height = height;
 }
 
+int32_t Object::x() const
+{
+    return this->_x;
+}
+
+int32_t Object::y() const
+{
+    return this->_y;
+}
+
 int32_t Object::viewport_x() const
 {
     return this->_x;
@@ -97,6 +112,20 @@ uint32_t Object::width() const
 uint32_t Object::height() const
 {
     return this->_height;
+}
+
+void Object::set_x(int32_t x)
+{
+    if (this->_x != x) {
+        this->_x = x;
+    }
+}
+
+void Object::set_y(int32_t y)
+{
+    if (this->_y != y) {
+        this->_y = y;
+    }
 }
 
 std::vector<glm::vec3> Object::vertices() const
@@ -604,12 +633,9 @@ static void draw_frame()
 
     glBindTexture(GL_TEXTURE_2D, texture);
     glBindVertexArray(vao);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
     for (auto& object: objects) {
-        fprintf(stderr, "Object - viewport x,y: (%d, %d)\n",
-            object.viewport_x(),
-            object.viewport_y());
         glViewport(object.viewport_x(), object.viewport_y(), object.width(), object.height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
@@ -721,6 +747,14 @@ int main(int argc, char *argv[])
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
+        // Move.
+        objects[0].set_x(objects[0].x() + 2);
+        objects[0].set_y(objects[0].y() + 1);
+
+        objects[1].set_x(objects[1].x() + 1);
+        objects[1].set_y(objects[1].y() + 2);
+
+        draw_frame();
         res = wl_display_dispatch(display);
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);
