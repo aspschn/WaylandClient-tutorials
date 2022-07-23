@@ -557,55 +557,37 @@ static void create_objects()
     vectors.push_back(glm::ivec3(2, 4, 0));
 
     // Object 2.
-    gl::Object obj2(50, 50, 100, 100);
+    gl::Object obj2(50, 150, 100, 100);
     objects.push_back(obj2);
     vectors.push_back(glm::ivec3(4, 2, 0));
+
+    // Object 3.
+    gl::Object obj3(0, 0, 64, 64);
+    objects.push_back(obj3);
+    vectors.push_back(glm::ivec3(6, 4, 0));
 }
 
 static void move_objects()
 {
-    //===========
-    // Object 1.
-    //===========
-    objects[0].set_x(objects[0].x() + vectors[0].x);
-    objects[0].set_y(objects[0].y() + vectors[0].y);
-    // Bottom bound.
-    if (objects[0].y() + objects[0].height() >= WINDOW_HEIGHT) {
-        vectors[0].y = -(vectors[0].y);
-    }
-    // Right bound.
-    if (objects[0].x() + objects[0].width() >= WINDOW_WIDTH) {
-        vectors[0].x = -(vectors[0].x);
-    }
-    // Top bound.
-    if (objects[0].y() <= 0) {
-        vectors[0].y = -(vectors[0].y);
-    }
-    // Left bound.
-    if (objects[0].x() <= 0) {
-        vectors[0].x = -(vectors[0].x);
-    }
-
-    //===========
-    // Object 2.
-    //===========
-    objects[1].set_x(objects[1].x() + vectors[1].x);
-    objects[1].set_y(objects[1].y() + vectors[1].y);
-    // Bottom bound.
-    if (objects[1].y() + objects[1].height() >= WINDOW_HEIGHT) {
-        vectors[1].y = -(vectors[1].y);
-    }
-    // Right bound.
-    if (objects[1].x() + objects[1].width() >= WINDOW_WIDTH) {
-        vectors[1].x = -(vectors[1].x);
-    }
-    // Top bound.
-    if (objects[1].y() <= 0) {
-        vectors[1].y = -(vectors[1].y);
-    }
-    // Left bound.
-    if (objects[1].x() <= 0) {
-        vectors[1].x = -(vectors[1].x);
+    for (uint64_t i = 0; i < objects.size(); ++i) {
+        objects[i].set_x(objects[i].x() + vectors[i].x);
+        objects[i].set_y(objects[i].y() + vectors[i].y);
+        // Bottom bound.
+        if (objects[i].y() + objects[i].height() >= WINDOW_HEIGHT) {
+            vectors[i].y = -(vectors[i].y);
+        }
+        // Right bound.
+        if (objects[i].x() + objects[i].width() >= WINDOW_WIDTH) {
+            vectors[i].x = -(vectors[i].x);
+        }
+        // Top bound.
+        if (objects[i].y() <= 0) {
+            vectors[i].y = -(vectors[i].y);
+        }
+        // Left bound.
+        if (objects[i].x() <= 0) {
+            vectors[i].x = -(vectors[i].x);
+        }
     }
 }
 
