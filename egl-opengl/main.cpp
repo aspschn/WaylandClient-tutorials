@@ -164,6 +164,13 @@ std::vector<glm::vec3> vertices = {
     { -(1.0f - ((float)x / WINDOW_WIDTH)),  1.0f - ((float)y / WINDOW_HEIGHT), 0.0f }, // Top left
 };
 
+std::vector<glm::vec3> full_vertices = {
+    {  1.0f,  1.0f, 0.0f },
+    {  1.0f, -1.0f, 0.0f },
+    { -1.0f, -1.0f, 0.0f },
+    { -1.0f,  1.0f, 0.0f },
+};
+
 glm::vec3 colors[] = {
     { 1.0f, 1.0f, 1.0f, },
     { 0.0f, 1.0f, 0.0f, },
@@ -171,10 +178,10 @@ glm::vec3 colors[] = {
 };
 
 GLfloat tex_coords[] = {
-    1.0f, 1.0f,
     1.0f, 0.0f,
+    1.0f, -1.0f,
+    0.0f, -1.0f,
     0.0f, 0.0f,
-    0.0f, 1.0f,
 };
 
 void load_image()
@@ -489,12 +496,13 @@ static void draw_frame()
 
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
-    // Set the viewport.
-    glViewport(0, 0, 480, 360);
-
     // Clear the color buffer.
     glClearColor(0.5, 0.5, 0.5, 0.8);
     glClear(GL_COLOR_BUFFER_BIT);
+
+    // Set the viewport.
+    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+
     // Use the program object.
     glUseProgram(program_object);
 
@@ -513,8 +521,8 @@ static void draw_frame()
     // Position attribute.
     glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
     glBufferData(GL_ARRAY_BUFFER,
-        sizeof(glm::vec3) * vertices.size(),
-        vertices.data(),
+        sizeof(glm::vec3) * full_vertices.size(),
+        full_vertices.data(),
         GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -537,8 +545,8 @@ static void draw_frame()
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage2D(
@@ -557,6 +565,14 @@ static void draw_frame()
     glBindTexture(GL_TEXTURE_2D, texture);
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+
+    glViewport(10, WINDOW_HEIGHT - 10 - 100, 100, 100);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+
+    for (uint32_t i = 0; i < 18; ++i) {
+        glViewport(i * 15, WINDOW_HEIGHT - (i * 15) - 100, 100, 100);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    }
 
     eglSwapBuffers(egl_display, egl_surface);
 }
