@@ -860,7 +860,10 @@ static void process_keyboard()
         }
         if (keyboard_state.key == KEY_ENTER && !keyboard_state.processed) {
             fprintf(stderr, "Enter.\n");
-            objects.push_back(gl::Object(0, 0, 128, 128));
+            gl::Object obj(0, 0, 128, 128);
+            obj.set_image((const uint8_t*)image_data, image_width, image_height);
+            obj.init_texture();
+            objects.push_back(obj);
             vectors.push_back(glm::ivec3(2, 2, 0));
         } else if (keyboard_state.key == KEY_RIGHT && !keyboard_state.processed) {
             cursor_vector.x = 1;
