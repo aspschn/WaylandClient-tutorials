@@ -187,7 +187,7 @@ GLfloat tex_coords[] = {
 void load_image()
 {
     cairo_surface_t *cairo_surface = cairo_image_surface_create_from_png(
-        "miku.png");
+        "miku@2x.png");
     cairo_t *cr = cairo_create(cairo_surface);
     image_width = cairo_image_surface_get_width(cairo_surface);
     image_height = cairo_image_surface_get_height(cairo_surface);
