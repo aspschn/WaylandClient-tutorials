@@ -27,6 +27,8 @@ struct wl_subcompositor *subcompositor = NULL;
 struct wl_surface *surface;
 struct wl_egl_window *egl_window;
 struct wl_region *region;
+struct wl_seat *seat = NULL;
+struct wl_keyboard *keyboard = NULL;
 
 struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface = NULL;
@@ -359,6 +361,119 @@ int init(GLuint *program_object)
     return 1;
 }
 
+//=============
+// Keyboard
+//=============
+
+static void keyboard_keymap_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t format, int fd, uint32_t size)
+{
+    (void)data;
+    (void)keyboard;
+    (void)format;
+    (void)fd;
+    (void)size;
+}
+
+static void keyboard_enter_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)surface;
+    (void)keys;
+}
+
+static void keyboard_leave_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)surface;
+}
+
+static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)time;
+    (void)key;
+    (void)state;
+    fprintf(stderr, "Key!\n");
+}
+
+static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial,
+        uint32_t mods_depressed,
+        uint32_t mods_latched,
+        uint32_t mods_locked,
+        uint32_t group)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)mods_depressed;
+    (void)mods_latched;
+    (void)mods_locked;
+    (void)group;
+}
+
+static void keyboard_repeat_info_handler(void *data,
+        struct wl_keyboard *keyboard,
+        int rate, int delay)
+{
+    (void)data;
+    (void)keyboard;
+    (void)rate;
+    (void)delay;
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = keyboard_keymap_handler,
+    .enter = keyboard_enter_handler,
+    .leave = keyboard_leave_handler,
+    .key = keyboard_key_handler,
+    .modifiers = keyboard_modifiers_handler,
+    .repeat_info = keyboard_repeat_info_handler,
+};
+
+//=============
+// Seat
+//=============
+
+static void seat_capabilities_handler(void *data, struct wl_seat *wl_seat,
+        uint32_t caps_uint)
+{
+    (void)data;
+    (void)wl_seat;
+    enum wl_seat_capability caps = (enum wl_seat_capability)caps_uint;
+
+    fprintf(stderr, "seat_capabilities_handler()\n");
+
+    if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
+        fprintf(stderr, " - Has keyboard!\n");
+        keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
+    }
+}
+
+static void seat_name_handler(void *data, struct wl_seat *seat,
+        const char *name)
+{
+    (void)data;
+    (void)seat;
+    (void)name;
+}
+
+static const struct wl_seat_listener seat_listener = {
+    .capabilities = seat_capabilities_handler,
+    .name = seat_name_handler,
+};
+
 //===========
 // XDG
 //===========
@@ -430,6 +545,10 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
     } else if (strcmp(interface, "wl_subcompositor") == 0) {
         subcompositor = (struct wl_subcompositor*)wl_registry_bind(registry,
             id, &wl_subcompositor_interface, 1);
+    } else if (strcmp(interface, "wl_seat") == 0) {
+        seat = (struct wl_seat*)wl_registry_bind(registry,
+            id, &wl_seat_interface, 5);
+        wl_seat_add_listener(seat, &seat_listener, NULL);
     } else {
         printf("(%d) Got a registry event for <%s> id <%d>\n",
             version, interface, id);
