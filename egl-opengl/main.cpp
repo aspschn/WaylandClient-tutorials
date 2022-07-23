@@ -45,16 +45,23 @@ uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
 
+namespace gl {
+
 class Object
 {
 public:
-    Object(uint32_t x, uint32_t y, uint32_t width, uint32_t height);
+    Object(int32_t x, int32_t y, uint32_t width, uint32_t height);
+
+    int32_t viewport_x() const;
+    int32_t viewport_y() const;
+    uint32_t width() const;
+    uint32_t height() const;
 
     std::vector<glm::vec3> vertices() const;
 
 private:
-    uint32_t _x;
-    uint32_t _y;
+    int32_t _x;
+    int32_t _y;
     uint32_t _width;
     uint32_t _height;
 
@@ -64,12 +71,32 @@ private:
 //====================
 // Object Methods
 //====================
-Object::Object(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
+Object::Object(int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
     this->_x = x;
     this->_y = y;
     this->_width = width;
     this->_height = height;
+}
+
+int32_t Object::viewport_x() const
+{
+    return this->_x;
+}
+
+int32_t Object::viewport_y() const
+{
+    return WINDOW_HEIGHT - this->_y - this->_height;
+}
+
+uint32_t Object::width() const
+{
+    return this->_width;
+}
+
+uint32_t Object::height() const
+{
+    return this->_height;
 }
 
 std::vector<glm::vec3> Object::vertices() const
@@ -106,6 +133,10 @@ std::vector<glm::vec3> Object::vertices() const
 
     return v;
 }
+
+} // namespace gl
+
+std::vector<gl::Object> objects;
 
 /*
 GLbyte vertex_shader_str[] =
@@ -487,6 +518,15 @@ static void create_window()
     }
 }
 
+static void create_objects()
+{
+    gl::Object obj(0, 0, 100, 100);
+    objects.push_back(obj);
+
+    gl::Object obj2(50, 50, 100, 100);
+    objects.push_back(obj2);
+}
+
 static void draw_frame()
 {
     GLuint indices[] = {
@@ -566,15 +606,20 @@ static void draw_frame()
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
-    glViewport(10, WINDOW_HEIGHT - 10 - 100, 100, 100);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-
-    for (uint32_t i = 0; i < 18; ++i) {
-        glViewport(i * 15, WINDOW_HEIGHT - (i * 15) - 100, 100, 100);
+    for (auto& object: objects) {
+        fprintf(stderr, "Object - viewport x,y: (%d, %d)\n",
+            object.viewport_x(),
+            object.viewport_y());
+        glViewport(object.viewport_x(), object.viewport_y(), object.width(), object.height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
     eglSwapBuffers(egl_display, egl_surface);
+
+    // Free.
+    glDeleteBuffers(2, vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteBuffers(1, &vao);
 }
 
 static void get_server_references()
@@ -669,6 +714,8 @@ int main(int argc, char *argv[])
     }
 
     wl_surface_commit(surface);
+
+    create_objects();
 
     draw_frame();
 
