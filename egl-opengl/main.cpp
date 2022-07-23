@@ -864,12 +864,16 @@ static void process_keyboard()
             vectors.push_back(glm::ivec3(2, 2, 0));
         } else if (keyboard_state.key == KEY_RIGHT && !keyboard_state.processed) {
             cursor_vector.x = 1;
+            cursor_vector.y = 0;
         } else if (keyboard_state.key == KEY_LEFT && !keyboard_state.processed) {
             cursor_vector.x = -1;
+            cursor_vector.y = 0;
         } else if (keyboard_state.key == KEY_DOWN && !keyboard_state.processed) {
             cursor_vector.y = 1;
+            cursor_vector.x = 0;
         } else if (keyboard_state.key == KEY_UP && !keyboard_state.processed) {
             cursor_vector.y = -1;
+            cursor_vector.x = 0;
         }
         keyboard_state.processed = true;
     } else {
