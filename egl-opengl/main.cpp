@@ -50,6 +50,16 @@ uint32_t image_height;
 uint32_t image_size;
 uint32_t *image_data;
 
+uint32_t cursor_width;
+uint32_t cursor_height;
+uint32_t cursor_size;
+uint32_t *cursor_data;
+
+GLuint indices[] = {
+    0, 1, 3,    // first triangle
+    1, 2, 3,    // second triangle
+};
+
 class KeyboardState {
 public:
     uint32_t rate;
@@ -81,6 +91,11 @@ class Object
 public:
     Object(int32_t x, int32_t y, uint32_t width, uint32_t height);
 
+    void set_image(const uint8_t *image_data,
+            uint64_t width, uint64_t height);
+
+    void init_texture();
+
     int32_t x() const;
     int32_t y() const;
     int32_t viewport_x() const;
@@ -91,6 +106,10 @@ public:
     void set_x(int32_t x);
     void set_y(int32_t y);
 
+    GLuint vao() const;
+    GLuint ebo() const;
+    GLuint texture() const;
+
     std::vector<glm::vec3> vertices() const;
 
 private:
@@ -98,6 +117,11 @@ private:
     int32_t _y;
     uint32_t _width;
     uint32_t _height;
+
+    const uint8_t *_image_data;
+    uint64_t _image_width;
+    uint64_t _image_height;
+    GLuint _texture;
 };
 
 //====================
@@ -109,6 +133,47 @@ Object::Object(int32_t x, int32_t y, uint32_t width, uint32_t height)
     this->_y = y;
     this->_width = width;
     this->_height = height;
+
+    this->_image_data = nullptr;
+    this->_image_width = 0;
+    this->_image_height = 0;
+    this->_texture = 0;
+}
+
+void Object::set_image(const uint8_t *image_data,
+        uint64_t width, uint64_t height)
+{
+    this->_image_data = image_data;
+    this->_image_width = width;
+    this->_image_height = height;
+}
+
+void Object::init_texture()
+{
+    if (this->_image_data == nullptr) {
+        fprintf(stderr, "[WARN] Image is null!\n");
+    }
+
+    glGenTextures(1, &this->_texture);
+    glBindTexture(GL_TEXTURE_2D, this->_texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA,
+        this->_image_width,
+        this->_image_height,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        this->_image_data
+    );
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    fprintf(stderr, "Object::init_texture() - texture: %d\n", this->_texture);
 }
 
 int32_t Object::x() const
@@ -153,6 +218,11 @@ void Object::set_y(int32_t y)
     if (this->_y != y) {
         this->_y = y;
     }
+}
+
+GLuint Object::texture() const
+{
+    return this->_texture;
 }
 
 std::vector<glm::vec3> Object::vertices() const
@@ -270,6 +340,31 @@ void load_image()
     cairo_destroy(cr);
 }
 
+void load_image2()
+{
+    cairo_surface_t *cairo_surface = cairo_image_surface_create_from_png(
+        "cursor.png");
+    cairo_t *cr = cairo_create(cairo_surface);
+    cursor_width = cairo_image_surface_get_width(cairo_surface);
+    cursor_height = cairo_image_surface_get_height(cairo_surface);
+    cursor_size = sizeof(uint32_t) * (cursor_width * cursor_height);
+    cursor_data = (uint32_t*)malloc(cursor_size);
+    memcpy(cursor_data, cairo_image_surface_get_data(cairo_surface), cursor_size);
+
+    // Color correct.
+    for (uint32_t i = 0; i < (cursor_width * cursor_height); ++i) {
+        uint32_t color = 0x00000000;
+        color += ((cursor_data[i] & 0xff000000));  // Set alpha.
+        color += ((cursor_data[i] & 0x00ff0000) >> 16);   // Set blue.
+        color += ((cursor_data[i] & 0x0000ff00));   // Set green.
+        color += ((cursor_data[i] & 0x000000ff) << 16);  // Set red.
+        cursor_data[i] = color;
+    }
+
+    cairo_surface_destroy(cairo_surface);
+    cairo_destroy(cr);
+}
+
 GLuint load_shader(const char *path, GLenum type)
 {
     GLuint shader;
@@ -367,6 +462,7 @@ int init(GLuint *program_object)
     }
 
     load_image();
+    load_image2();
 
     return 1;
 }
@@ -693,17 +789,23 @@ static void create_window()
 static void create_objects()
 {
     // Object 1.
-    gl::Object obj(0, 0, 100, 100);
+    gl::Object obj(0, 0, 200, 100);
+    obj.set_image((const uint8_t*)image_data, image_width, image_height);
+    obj.init_texture();
     objects.push_back(obj);
     vectors.push_back(glm::ivec3(2, 4, 0));
 
     // Object 2.
     gl::Object obj2(50, 150, 100, 100);
+    obj2.set_image((const uint8_t*)image_data, image_width, image_height);
+    obj2.init_texture();
     objects.push_back(obj2);
     vectors.push_back(glm::ivec3(4, 2, 0));
 
     // Object 3.
     gl::Object obj3(0, 0, 64, 64);
+    obj3.set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
+    obj3.init_texture();
     objects.push_back(obj3);
     vectors.push_back(glm::ivec3(6, 4, 0));
 }
@@ -761,11 +863,6 @@ static void process_keyboard()
 
 static void draw_frame()
 {
-    GLuint indices[] = {
-        0, 1, 3,    // first triangle
-        1, 2, 3,    // second triangle
-    };
-
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
     // Clear the color buffer.
@@ -790,55 +887,35 @@ static void draw_frame()
     GLuint vbo[2];
     glGenBuffers(2, vbo);
 
-    // Position attribute.
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER,
-        sizeof(glm::vec3) * full_vertices.size(),
-        full_vertices.data(),
-        GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(0);
-    // Color attribute.
-    /*
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(1);
-    */
-    // Texture coord attribute
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-    glEnableVertexAttribArray(1);
-
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        image_width,
-        image_height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        image_data
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glBindVertexArray(vao);
+    // glBindTexture(GL_TEXTURE_2D, texture);
+//    glBindVertexArray(vao);
     // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
     for (auto& object: objects) {
+        glBindVertexArray(vao);
+
+        // Position attribute.
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+        glBufferData(GL_ARRAY_BUFFER,
+            sizeof(glm::vec3) * full_vertices.size(),
+            full_vertices.data(),
+            GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(0);
+
+        // Texture coord attribute
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(1);
+
+//        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, object.texture());
+
+        glBindVertexArray(vao);
+
         glViewport(object.viewport_x(), object.viewport_y(), object.width(), object.height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
