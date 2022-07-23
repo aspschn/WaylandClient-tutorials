@@ -167,6 +167,8 @@ std::vector<glm::vec3> Object::vertices() const
 
 std::vector<gl::Object> objects;
 
+std::vector<glm::ivec3> vectors;
+
 /*
 GLbyte vertex_shader_str[] =
     "#version 330 core              \n"
@@ -549,11 +551,62 @@ static void create_window()
 
 static void create_objects()
 {
+    // Object 1.
     gl::Object obj(0, 0, 100, 100);
     objects.push_back(obj);
+    vectors.push_back(glm::ivec3(2, 4, 0));
 
+    // Object 2.
     gl::Object obj2(50, 50, 100, 100);
     objects.push_back(obj2);
+    vectors.push_back(glm::ivec3(4, 2, 0));
+}
+
+static void move_objects()
+{
+    //===========
+    // Object 1.
+    //===========
+    objects[0].set_x(objects[0].x() + vectors[0].x);
+    objects[0].set_y(objects[0].y() + vectors[0].y);
+    // Bottom bound.
+    if (objects[0].y() + objects[0].height() >= WINDOW_HEIGHT) {
+        vectors[0].y = -(vectors[0].y);
+    }
+    // Right bound.
+    if (objects[0].x() + objects[0].width() >= WINDOW_WIDTH) {
+        vectors[0].x = -(vectors[0].x);
+    }
+    // Top bound.
+    if (objects[0].y() <= 0) {
+        vectors[0].y = -(vectors[0].y);
+    }
+    // Left bound.
+    if (objects[0].x() <= 0) {
+        vectors[0].x = -(vectors[0].x);
+    }
+
+    //===========
+    // Object 2.
+    //===========
+    objects[1].set_x(objects[1].x() + vectors[1].x);
+    objects[1].set_y(objects[1].y() + vectors[1].y);
+    // Bottom bound.
+    if (objects[1].y() + objects[1].height() >= WINDOW_HEIGHT) {
+        vectors[1].y = -(vectors[1].y);
+    }
+    // Right bound.
+    if (objects[1].x() + objects[1].width() >= WINDOW_WIDTH) {
+        vectors[1].x = -(vectors[1].x);
+    }
+    // Top bound.
+    if (objects[1].y() <= 0) {
+        vectors[1].y = -(vectors[1].y);
+    }
+    // Left bound.
+    if (objects[1].x() <= 0) {
+        vectors[1].x = -(vectors[1].x);
+    }
 }
 
 static void draw_frame()
@@ -748,11 +801,7 @@ int main(int argc, char *argv[])
     int res = wl_display_dispatch(display);
     while (res != -1) {
         // Move.
-        objects[0].set_x(objects[0].x() + 2);
-        objects[0].set_y(objects[0].y() + 1);
-
-        objects[1].set_x(objects[1].x() + 1);
-        objects[1].set_y(objects[1].y() + 2);
+        move_objects();
 
         draw_frame();
         res = wl_display_dispatch(display);
