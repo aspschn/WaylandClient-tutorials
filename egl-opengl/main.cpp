@@ -213,34 +213,6 @@ GLbyte vertex_shader_str[] =
     "}                                      \n";
 */
 
-GLbyte vertex_shader_str[] =
-    "#version 330 core              \n"
-//        "attribute vec4 vPosition;      \n"
-    "layout (location = 0) in vec3 aPos;        \n"
-    "layout (location = 1) in vec2 aTexCoord;   \n"
-    ""
-    "out vec2 TexCoord;             \n"
-    ""
-    "void main()                            \n"
-    "{                                      \n"
-    "    gl_Position = vec4(aPos, 1.0);     \n"
-    "    TexCoord = aTexCoord;              \n"
-    "}                                      \n";
-
-GLbyte fragment_shader_str[] =
-    "#version 330 core              \n"
-    "precision mediump float;       \n"
-    "out vec4 fragColor;            \n"
-    "\n"
-    "in vec2 TexCoord;              \n"
-    "\n"
-    "uniform sampler2D ourTexture;  \n"
-    "\n"
-    "void main()                    \n"
-    "{                              \n"
-    "    fragColor = texture(ourTexture, TexCoord); \n"
-    "}                              \n";
-
 const uint32_t x = 100;
 const uint32_t y = 100;
 const uint32_t width = 50;
@@ -298,10 +270,21 @@ void load_image()
     cairo_destroy(cr);
 }
 
-GLuint load_shader(const char *shader_src, GLenum type)
+GLuint load_shader(const char *path, GLenum type)
 {
     GLuint shader;
     GLint compiled;
+
+    // Read file.
+    uint8_t *code = nullptr;
+    int64_t size;
+    FILE *f = fopen(path, "rb");
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    code = new uint8_t[size];
+    fread(code, size, 1, f);
 
     // Create the shader object.
     shader = glCreateShader(type);
@@ -311,7 +294,7 @@ GLuint load_shader(const char *shader_src, GLenum type)
     fprintf(stderr, "Shader: %d\n", shader);
 
     // Load the shader source.
-    glShaderSource(shader, 1, &shader_src, NULL);
+    glShaderSource(shader, 1, (const GLchar* const*)&code, NULL);
 
     // Compile the shader.
     glCompileShader(shader);
@@ -333,6 +316,8 @@ GLuint load_shader(const char *shader_src, GLenum type)
         return 0;
     }
 
+    delete[] code;
+
     return shader;
 }
 
@@ -342,8 +327,8 @@ int init(GLuint *program_object)
     GLuint fragment_shader;
     GLint linked;
 
-    vertex_shader = load_shader((const char*)vertex_shader_str, GL_VERTEX_SHADER);
-    fragment_shader = load_shader((const char*)fragment_shader_str, GL_FRAGMENT_SHADER);
+    vertex_shader = load_shader("shaders/shader.vert", GL_VERTEX_SHADER);
+    fragment_shader = load_shader("shaders/shader.frag", GL_FRAGMENT_SHADER);
 
     fprintf(stderr, "Vertex shader: %d\n", vertex_shader);
     fprintf(stderr, "Fragment shader: %d\n", fragment_shader);
