@@ -263,8 +263,10 @@ std::vector<glm::vec3> Object::vertices() const
 } // namespace gl
 
 std::vector<gl::Object> objects;
-
 std::vector<glm::ivec3> vectors;
+
+gl::Object cursor_object(0, 0, 12, 12);
+glm::ivec3 cursor_vector;
 
 /*
 GLbyte vertex_shader_str[] =
@@ -804,10 +806,13 @@ static void create_objects()
 
     // Object 3.
     gl::Object obj3(0, 0, 64, 64);
-    obj3.set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
+    obj3.set_image((const uint8_t*)image_data, image_width, image_height);
     obj3.init_texture();
     objects.push_back(obj3);
     vectors.push_back(glm::ivec3(6, 4, 0));
+
+    cursor_object.set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
+    cursor_object.init_texture();
 }
 
 static void move_objects()
@@ -832,6 +837,10 @@ static void move_objects()
             vectors[i].x = -(vectors[i].x);
         }
     }
+
+    // Cursor.
+    cursor_object.set_x(cursor_object.x() + cursor_vector.x);
+    cursor_object.set_y(cursor_object.y() + cursor_vector.y);
 }
 
 static void process_keyboard()
@@ -853,6 +862,14 @@ static void process_keyboard()
             fprintf(stderr, "Enter.\n");
             objects.push_back(gl::Object(0, 0, 128, 128));
             vectors.push_back(glm::ivec3(2, 2, 0));
+        } else if (keyboard_state.key == KEY_RIGHT && !keyboard_state.processed) {
+            cursor_vector.x = 1;
+        } else if (keyboard_state.key == KEY_LEFT && !keyboard_state.processed) {
+            cursor_vector.x = -1;
+        } else if (keyboard_state.key == KEY_DOWN && !keyboard_state.processed) {
+            cursor_vector.y = 1;
+        } else if (keyboard_state.key == KEY_UP && !keyboard_state.processed) {
+            cursor_vector.y = -1;
         }
         keyboard_state.processed = true;
     } else {
@@ -917,6 +934,36 @@ static void draw_frame()
         glBindVertexArray(vao);
 
         glViewport(object.viewport_x(), object.viewport_y(), object.width(), object.height());
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    }
+
+    {
+        glBindVertexArray(vao);
+
+        // Position attribute.
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+        glBufferData(GL_ARRAY_BUFFER,
+            sizeof(glm::vec3) * full_vertices.size(),
+            full_vertices.data(),
+            GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(0);
+
+        // Texture coord attribute
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(1);
+
+//        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, cursor_object.texture());
+
+        glBindVertexArray(vao);
+
+        glViewport(cursor_object.viewport_x(), cursor_object.viewport_y(),
+            cursor_object.width(), cursor_object.height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
