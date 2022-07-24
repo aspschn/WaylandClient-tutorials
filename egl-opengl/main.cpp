@@ -860,7 +860,7 @@ static void create_window()
         fprintf(stderr, "Made current failed.\n");
     }
 
-    glClearColor(1.0, 1.0, 1.0, 0.5);
+    glClearColor(0.5, 0.5, 0.5, 0.8);
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
@@ -874,7 +874,7 @@ static void create_window()
 static void recreate_window()
 {
     eglDestroySurface(egl_display, egl_surface);
-    wl_egl_window_destroy(egl_window);
+    wl_egl_window_resize(egl_window, surface.width(), surface.height(), 0, 0);
 
     create_window();
 }
