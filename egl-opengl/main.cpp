@@ -27,7 +27,7 @@
 struct wl_display *display = NULL;
 struct wl_compositor *compositor = NULL;
 struct wl_subcompositor *subcompositor = NULL;
-struct wl_surface *surface;
+struct wl_surface *wl_surface;
 struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_seat *seat = NULL;
@@ -60,7 +60,68 @@ GLuint indices[] = {
     1, 2, 3,    // second triangle
 };
 
-class KeyboardState {
+//================
+// Surface
+//================
+
+class Surface
+{
+public:
+    Surface(uint32_t width, uint32_t height);
+
+    uint32_t width() const;
+    uint32_t height() const;
+    uint32_t scale() const;
+
+    uint32_t scaled_width() const;
+    uint32_t scaled_height() const;
+
+private:
+    uint32_t _width;
+    uint32_t _height;
+    uint32_t _scale;
+};
+
+Surface::Surface(uint32_t width, uint32_t height)
+{
+    this->_width = width;
+    this->_height = height;
+    this->_scale = 2;
+}
+
+uint32_t Surface::width() const
+{
+    return this->_width;
+}
+
+uint32_t Surface::height() const
+{
+    return this->_height;
+}
+
+uint32_t Surface::scale() const
+{
+    return this->_scale;
+}
+
+uint32_t Surface::scaled_width() const
+{
+    return this->_width * this->_scale;
+}
+
+uint32_t Surface::scaled_height() const
+{
+    return this->_height * this->_scale;
+}
+
+Surface surface(WINDOW_WIDTH, WINDOW_HEIGHT);
+
+//=================
+// KeyboardState
+//=================
+
+class KeyboardState
+{
 public:
     uint32_t rate;
     uint32_t delay;
@@ -102,6 +163,9 @@ public:
     int32_t viewport_y() const;
     uint32_t width() const;
     uint32_t height() const;
+
+    uint32_t scaled_width() const;
+    uint32_t scaled_height() const;
 
     void set_x(int32_t x);
     void set_y(int32_t y);
@@ -193,7 +257,7 @@ int32_t Object::viewport_x() const
 
 int32_t Object::viewport_y() const
 {
-    return WINDOW_HEIGHT - this->_y - this->_height;
+    return surface.scaled_height() - (this->_y) - (this->_height * surface.scale());
 }
 
 uint32_t Object::width() const
@@ -218,6 +282,16 @@ void Object::set_y(int32_t y)
     if (this->_y != y) {
         this->_y = y;
     }
+}
+
+uint32_t Object::scaled_width() const
+{
+    return this->_width * surface.scale();
+}
+
+uint32_t Object::scaled_height() const
+{
+    return this->_height * surface.scale();
 }
 
 GLuint Object::texture() const
@@ -761,7 +835,8 @@ static void init_egl()
 
 static void create_window()
 {
-    egl_window = wl_egl_window_create(surface, WINDOW_WIDTH, WINDOW_HEIGHT);
+    egl_window = wl_egl_window_create(wl_surface,
+        surface.scaled_width(), surface.scaled_height());
     if (egl_window == EGL_NO_SURFACE) {
         fprintf(stderr, "Can't create egl window.\n");
         exit(1);
@@ -821,11 +896,11 @@ static void move_objects()
         objects[i].set_x(objects[i].x() + vectors[i].x);
         objects[i].set_y(objects[i].y() + vectors[i].y);
         // Bottom bound.
-        if (objects[i].y() + objects[i].height() >= WINDOW_HEIGHT) {
+        if (objects[i].y() + objects[i].scaled_height() >= surface.scaled_height()) {
             vectors[i].y = -(vectors[i].y);
         }
         // Right bound.
-        if (objects[i].x() + objects[i].width() >= WINDOW_WIDTH) {
+        if (objects[i].x() + objects[i].scaled_width() >= surface.scaled_width()) {
             vectors[i].x = -(vectors[i].x);
         }
         // Top bound.
@@ -893,9 +968,6 @@ static void draw_frame()
     glClearColor(0.5, 0.5, 0.5, 0.8);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    // Set the viewport.
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-
     // Use the program object.
     glUseProgram(program_object);
 
@@ -940,7 +1012,8 @@ static void draw_frame()
 
         glBindVertexArray(vao);
 
-        glViewport(object.viewport_x(), object.viewport_y(), object.width(), object.height());
+        glViewport(object.viewport_x(), object.viewport_y(),
+            object.scaled_width(), object.scaled_height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
@@ -970,7 +1043,7 @@ static void draw_frame()
         glBindVertexArray(vao);
 
         glViewport(cursor_object.viewport_x(), cursor_object.viewport_y(),
-            cursor_object.width(), cursor_object.height());
+            cursor_object.scaled_width(), cursor_object.scaled_height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
@@ -1014,8 +1087,8 @@ int main(int argc, char *argv[])
 
     // Check surface.
     fprintf(stderr, " - Checking surface...\n");
-    surface = wl_compositor_create_surface(compositor);
-    if (surface == NULL) {
+    wl_surface = wl_compositor_create_surface(compositor);
+    if (wl_surface == NULL) {
         fprintf(stderr, "Can't create surface.\n");
         exit(1);
     } else {
@@ -1024,12 +1097,13 @@ int main(int argc, char *argv[])
     // subsurface = wl_subcompositor_get_subsurface(subcompositor,
     //     surface2, surface);
     // wl_subsurface_set_position(subsurface, -10, -10);
+    wl_surface_set_buffer_scale(wl_surface, 2);
 
     xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
 
     // Check xdg surface.
     fprintf(stderr, " - Checking xdg surface...\n");
-    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
+    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, wl_surface);
     if (xdg_surface == NULL) {
         fprintf(stderr, "Can't create xdg surface.\n");
         exit(1);
@@ -1046,7 +1120,7 @@ int main(int argc, char *argv[])
 
 
     // MUST COMMIT! or not working on weston.
-    wl_surface_commit(surface);
+    wl_surface_commit(wl_surface);
 
     wl_display_roundtrip(display);
 
@@ -1073,7 +1147,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error init!\n");
     }
 
-    wl_surface_commit(surface);
+    wl_surface_commit(wl_surface);
 
     create_objects();
 
