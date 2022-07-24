@@ -873,10 +873,8 @@ static void create_window()
 
 static void recreate_window()
 {
-    eglDestroySurface(egl_display, egl_surface);
-    wl_egl_window_resize(egl_window, surface.width(), surface.height(), 0, 0);
-
-    create_window();
+//    eglDestroySurface(egl_display, egl_surface);
+    wl_egl_window_resize(egl_window, surface.scaled_width(), surface.scaled_height(), 0, 0);
 }
 
 static void create_objects()
