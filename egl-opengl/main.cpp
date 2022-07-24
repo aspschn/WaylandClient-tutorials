@@ -73,6 +73,8 @@ public:
     uint32_t height() const;
     uint32_t scale() const;
 
+    void set_size(uint32_t width, uint32_t height);
+
     uint32_t scaled_width() const;
     uint32_t scaled_height() const;
 
@@ -102,6 +104,12 @@ uint32_t Surface::height() const
 uint32_t Surface::scale() const
 {
     return this->_scale;
+}
+
+void Surface::set_size(uint32_t width, uint32_t height)
+{
+    this->_width = width;
+    this->_height = height;
 }
 
 uint32_t Surface::scaled_width() const
@@ -863,6 +871,14 @@ static void create_window()
     }
 }
 
+static void recreate_window()
+{
+    eglDestroySurface(egl_display, egl_surface);
+    wl_egl_window_destroy(egl_window);
+
+    create_window();
+}
+
 static void create_objects()
 {
     // Object 1.
@@ -952,6 +968,12 @@ static void process_keyboard()
         } else if (keyboard_state.key == KEY_UP && !keyboard_state.processed) {
             cursor_vector.y = -2;
             cursor_vector.x = 0;
+        } else if (keyboard_state.key == KEY_MINUS && !keyboard_state.processed) {
+            surface.set_size(surface.width() - 10, surface.height() - 10);
+            recreate_window();
+        } else if (keyboard_state.key == KEY_EQUAL && !keyboard_state.processed) {
+            surface.set_size(surface.width() + 10, surface.height() + 10);
+            recreate_window();
         }
         keyboard_state.processed = true;
     } else {
