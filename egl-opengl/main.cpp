@@ -1130,10 +1130,6 @@ static void draw_frame()
     GLuint vbo[2];
     glGenBuffers(2, vbo);
 
-    // glBindTexture(GL_TEXTURE_2D, texture);
-//    glBindVertexArray(vao);
-    // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-
     for (auto& object: objects) {
         glBindVertexArray(vao);
 
