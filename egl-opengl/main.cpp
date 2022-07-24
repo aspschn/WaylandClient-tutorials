@@ -32,6 +32,7 @@ struct wl_egl_window *egl_window;
 struct wl_region *region;
 struct wl_seat *seat = NULL;
 struct wl_keyboard *keyboard = NULL;
+struct wl_pointer *pointer = NULL;
 
 struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface = NULL;
@@ -552,6 +553,128 @@ int init(GLuint *program_object)
 }
 
 //=============
+// Pointer
+//=============
+
+static void pointer_enter_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t serial,
+          struct wl_surface *surface,
+          wl_fixed_t surface_x,
+          wl_fixed_t surface_y)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)surface;
+    (void)surface_x;
+    (void)surface_y;
+}
+
+static void pointer_leave_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t serial,
+          struct wl_surface *surface)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)surface;
+}
+
+static void pointer_motion_handler(void *data,
+           struct wl_pointer *wl_pointer,
+           uint32_t time,
+           wl_fixed_t surface_x,
+           wl_fixed_t surface_y)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)surface_x;
+    (void)surface_y;
+}
+
+static void pointer_button_handler(void *data,
+           struct wl_pointer *wl_pointer,
+           uint32_t serial,
+           uint32_t time,
+           uint32_t button,
+           uint32_t state)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)time;
+    if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        xdg_toplevel_move(xdg_toplevel, seat, serial);
+    }
+}
+
+static void pointer_axis_handler(void *data,
+         struct wl_pointer *wl_pointer,
+         uint32_t time,
+         uint32_t axis,
+         wl_fixed_t value)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)axis;
+    (void)value;
+}
+
+static void pointer_frame_handler(void *data,
+          struct wl_pointer *wl_pointer)
+{
+    (void)data;
+    (void)wl_pointer;
+}
+
+static void pointer_axis_source_handler(void *data,
+            struct wl_pointer *wl_pointer,
+            uint32_t axis_source)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)axis_source;
+}
+
+static void pointer_axis_stop_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t time,
+          uint32_t axis)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)axis;
+}
+
+static void pointer_axis_discrete_handler(void *data,
+              struct wl_pointer *wl_pointer,
+              uint32_t axis,
+              int32_t discrete)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)axis;
+    (void)discrete;
+}
+
+static const wl_pointer_listener pointer_listener = {
+    .enter = pointer_enter_handler,
+    .leave = pointer_leave_handler,
+    .motion = pointer_motion_handler,
+    .button = pointer_button_handler,
+    .axis = pointer_axis_handler,
+    .frame = pointer_frame_handler,
+    .axis_source = pointer_axis_source_handler,
+    .axis_stop = pointer_axis_stop_handler,
+    .axis_discrete = pointer_axis_discrete_handler,
+};
+
+//=============
 // Keyboard
 //=============
 
@@ -660,6 +783,10 @@ static void seat_capabilities_handler(void *data, struct wl_seat *wl_seat,
         fprintf(stderr, " - Has keyboard!\n");
         keyboard = wl_seat_get_keyboard(seat);
         wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
+    }
+    if (caps & WL_SEAT_CAPABILITY_POINTER) {
+        pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(pointer, &pointer_listener, NULL);
     }
 }
 
