@@ -150,6 +150,15 @@ public:
         }
         return elapsed_time - pressed_time >= delay;
     }
+
+    bool should_processed(uint32_t key)
+    {
+        if (this->key == key && (!this->processed || this->repeating())) {
+            return true;
+        }
+
+        return false;
+    }
 };
 
 KeyboardState keyboard_state;
@@ -460,11 +469,12 @@ GLuint load_shader(const char *path, GLenum type)
     int64_t size;
     FILE *f = fopen(path, "rb");
     fseek(f, 0, SEEK_END);
-    size = ftell(f);
+    size = ftell(f) + 1;
     fseek(f, 0, SEEK_SET);
 
     code = new uint8_t[size];
     fread(code, size, 1, f);
+    code[size] = '\0';
 
     // Create the shader object.
     shader = glCreateShader(type);
@@ -1074,7 +1084,7 @@ static void process_keyboard()
         if (keyboard_state.repeating()) {
             fprintf(stderr, "Key repeat!\n");
         }
-        if (keyboard_state.key == KEY_ENTER && !keyboard_state.processed) {
+        if (keyboard_state.should_processed(KEY_ENTER)) {
             fprintf(stderr, "Enter.\n");
             gl::Object obj(0, 0, 128, 128);
             obj.set_image((const uint8_t*)image_data, image_width, image_height);
