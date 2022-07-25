@@ -996,6 +996,8 @@ static void init_egl()
 
     egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
         context_attribs);
+
+    eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context);
 }
 
 static void create_window()
@@ -1304,6 +1306,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Has GL_VERSION_4_6\n");
 
     init_egl();
+    gl_info();
 
     create_window();
 
@@ -1315,7 +1318,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    gl_info();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
