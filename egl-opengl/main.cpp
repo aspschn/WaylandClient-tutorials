@@ -473,7 +473,7 @@ GLuint load_shader(const char *path, GLenum type)
     fseek(f, 0, SEEK_SET);
 
     code = new uint8_t[size];
-    fread(code, size, 1, f);
+    fread(code, size - 1, 1, f);
     code[size] = '\0';
 
     // Create the shader object.
