@@ -20,6 +20,7 @@
 #include <cairo.h>
 
 #include <example/surface.h>
+#include <example/gl/context.h>
 #include <example/gl/object.h>
 
 #include "wayland-protocols/stable/xdg-shell.h"
@@ -42,9 +43,7 @@ struct xdg_surface *xdg_surface = NULL;
 struct xdg_toplevel *xdg_toplevel = NULL;
 
 EGLDisplay egl_display;
-EGLConfig egl_conf;
 EGLSurface egl_surface;
-EGLContext egl_context;
 GLuint program_object;
 
 //struct wl_subsurface *subsurface;
@@ -686,32 +685,6 @@ static void gl_info()
 
 static void init_egl()
 {
-    EGLint major, minor, count, n, size;
-    EGLConfig *configs;
-    EGLint config_attribs[] = {
-        EGL_SURFACE_TYPE,
-        EGL_WINDOW_BIT,
-        EGL_RED_SIZE,
-        8,
-        EGL_GREEN_SIZE,
-        8,
-        EGL_BLUE_SIZE,
-        8,
-        EGL_ALPHA_SIZE,
-        8,
-        EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_BIT,
-        EGL_NONE,
-    };
-
-    static const EGLint context_attribs[] = {
-        EGL_CONTEXT_MAJOR_VERSION,
-        4,
-        EGL_CONTEXT_MINOR_VERSION,
-        6,
-        EGL_NONE,
-    };
-
     egl_display = eglGetDisplay((EGLNativeDisplayType)display);
     if (egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
@@ -719,38 +692,9 @@ static void init_egl()
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
-
-    eglBindAPI(EGL_OPENGL_API);
-
-    if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
-        fprintf(stderr, "Can't initialise egl display.\n");
-        exit(1);
-    }
-    printf("EGL major: %d, minor %d\n", major, minor);
-
-    eglGetConfigs(egl_display, NULL, 0, &count);
-    printf("EGL has %d configs.\n", count);
-
-    configs = (void**)calloc(count, sizeof *configs);
-
-    eglChooseConfig(egl_display, config_attribs, configs, count, &n);
-
-    for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(egl_display, configs[i], EGL_BUFFER_SIZE, &size);
-        printf("Buffersize for config %d is %d\n", i, size);
-        eglGetConfigAttrib(egl_display, configs[i], EGL_RED_SIZE, &size);
-        printf("Red size for config %d is %d.\n", i, size);
-    }
-    // Just choose the first one.
-    egl_conf = configs[0];
-
-    egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
-        context_attribs);
-
-    eglMakeCurrent(egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, egl_context);
 }
 
-static void create_window()
+static void create_window(gl::Context *context)
 {
     egl_window = wl_egl_window_create(wl_surface,
         surface.scaled_width(), surface.scaled_height());
@@ -761,9 +705,11 @@ static void create_window()
         fprintf(stderr, "Created egl window.\n");
     }
 
-    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
+    egl_surface = eglCreateWindowSurface(egl_display,
+        context->egl_config(),
+        egl_window,
         NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
+    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, context->egl_context())) {
         fprintf(stderr, "Made current.\n");
     } else {
         fprintf(stderr, "Made current failed.\n");
@@ -890,9 +836,9 @@ static void process_keyboard()
     }
 }
 
-static void draw_frame()
+static void draw_frame(gl::Context *context)
 {
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+    eglMakeCurrent(egl_display, egl_surface, egl_surface, context->egl_context());
 
     // Clear the color buffer.
     glClearColor(0.5, 0.5, 0.5, 0.8);
@@ -1057,6 +1003,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "Has GL_VERSION_4_6\n");
 
     init_egl();
+    gl::Context context(egl_display);
     gl_info();
 
     fprintf(stderr, "GLEW experimental: %d\n", glewExperimental);
@@ -1067,7 +1014,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    create_window();
+    create_window(&context);
 
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
@@ -1077,7 +1024,7 @@ int main(int argc, char *argv[])
 
     create_objects();
 
-    draw_frame();
+    draw_frame(&context);
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
@@ -1086,7 +1033,7 @@ int main(int argc, char *argv[])
         // Move.
         move_objects();
 
-        draw_frame();
+        draw_frame(&context);
         res = wl_display_dispatch(display);
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);

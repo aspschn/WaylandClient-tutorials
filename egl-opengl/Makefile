@@ -2,6 +2,7 @@
 
 C_OBJ=wayland-protocols/stable/xdg-shell.o
 OBJ=src/surface.o \
+	src/context.o \
 	src/object.o
 
 PKG_CONFIG=`pkg-config --cflags --libs cairo`
