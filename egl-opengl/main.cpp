@@ -1308,8 +1308,6 @@ int main(int argc, char *argv[])
     init_egl();
     gl_info();
 
-    create_window();
-
     fprintf(stderr, "GLEW experimental: %d\n", glewExperimental);
     GLenum err = glewInit();
     if (err != GLEW_OK && err != GLEW_ERROR_NO_GLX_DISPLAY) {
@@ -1317,6 +1315,8 @@ int main(int argc, char *argv[])
             glewGetErrorString(err));
         exit(1);
     }
+
+    create_window();
 
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
