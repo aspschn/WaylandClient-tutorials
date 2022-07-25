@@ -1100,6 +1100,7 @@ static void process_keyboard()
     if (keyboard_state.pressed == true) {
         if (!keyboard_state.processed) {
             keyboard_state.pressed_time = ms;
+            keyboard_state.elapsed_time = ms;
         } else {
             keyboard_state.elapsed_time = ms;
         }
