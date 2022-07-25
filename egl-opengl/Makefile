@@ -1,12 +1,16 @@
 .PHONY: wayland-protocols
 
 C_OBJ=wayland-protocols/stable/xdg-shell.o
-# OBJ=xdg-shell.o
+OBJ=src/surface.o \
+	src/object.o
 
 PKG_CONFIG=`pkg-config --cflags --libs cairo`
 
-default: $(C_OBJ)
-	g++ main.cpp $^ -lwayland-client -lwayland-egl -lEGL -lGL -lGLEW $(PKG_CONFIG)
+default: $(C_OBJ) $(OBJ)
+	g++ -Iinclude main.cpp $^ -lwayland-client -lwayland-egl -lEGL -lGL -lGLEW $(PKG_CONFIG)
+
+src/%.o: src/%.cpp
+	$(CXX) -c -Iinclude -fPIC -o $@ $<
 
 wayland-protocols/stable/%.o: wayland-protocols/stable/%.c
 	$(CC) -c -fPIC -o $@ $<

@@ -19,6 +19,9 @@
 
 #include <cairo.h>
 
+#include <example/surface.h>
+#include <example/gl/object.h>
+
 #include "wayland-protocols/stable/xdg-shell.h"
 
 #define WINDOW_WIDTH 480
@@ -61,68 +64,6 @@ GLuint indices[] = {
     1, 2, 3,    // second triangle
 };
 
-//================
-// Surface
-//================
-
-class Surface
-{
-public:
-    Surface(uint32_t width, uint32_t height);
-
-    uint32_t width() const;
-    uint32_t height() const;
-    uint32_t scale() const;
-
-    void set_size(uint32_t width, uint32_t height);
-
-    uint32_t scaled_width() const;
-    uint32_t scaled_height() const;
-
-private:
-    uint32_t _width;
-    uint32_t _height;
-    uint32_t _scale;
-};
-
-Surface::Surface(uint32_t width, uint32_t height)
-{
-    this->_width = width;
-    this->_height = height;
-    this->_scale = 2;
-}
-
-uint32_t Surface::width() const
-{
-    return this->_width;
-}
-
-uint32_t Surface::height() const
-{
-    return this->_height;
-}
-
-uint32_t Surface::scale() const
-{
-    return this->_scale;
-}
-
-void Surface::set_size(uint32_t width, uint32_t height)
-{
-    this->_width = width;
-    this->_height = height;
-}
-
-uint32_t Surface::scaled_width() const
-{
-    return this->_width * this->_scale;
-}
-
-uint32_t Surface::scaled_height() const
-{
-    return this->_height * this->_scale;
-}
-
 Surface surface(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 //=================
@@ -163,201 +104,10 @@ public:
 
 KeyboardState keyboard_state;
 
-namespace gl {
-
-class Object
-{
-public:
-    Object(int32_t x, int32_t y, uint32_t width, uint32_t height);
-
-    void set_image(const uint8_t *image_data,
-            uint64_t width, uint64_t height);
-
-    void init_texture();
-
-    int32_t x() const;
-    int32_t y() const;
-    int32_t viewport_x() const;
-    int32_t viewport_y() const;
-    uint32_t width() const;
-    uint32_t height() const;
-
-    uint32_t scaled_width() const;
-    uint32_t scaled_height() const;
-
-    void set_x(int32_t x);
-    void set_y(int32_t y);
-
-    GLuint vao() const;
-    GLuint ebo() const;
-    GLuint texture() const;
-
-    std::vector<glm::vec3> vertices() const;
-
-private:
-    int32_t _x;
-    int32_t _y;
-    uint32_t _width;
-    uint32_t _height;
-
-    const uint8_t *_image_data;
-    uint64_t _image_width;
-    uint64_t _image_height;
-    GLuint _texture;
-};
-
-//====================
-// Object Methods
-//====================
-Object::Object(int32_t x, int32_t y, uint32_t width, uint32_t height)
-{
-    this->_x = x;
-    this->_y = y;
-    this->_width = width;
-    this->_height = height;
-
-    this->_image_data = nullptr;
-    this->_image_width = 0;
-    this->_image_height = 0;
-    this->_texture = 0;
-}
-
-void Object::set_image(const uint8_t *image_data,
-        uint64_t width, uint64_t height)
-{
-    this->_image_data = image_data;
-    this->_image_width = width;
-    this->_image_height = height;
-}
-
-void Object::init_texture()
-{
-    if (this->_image_data == nullptr) {
-        fprintf(stderr, "[WARN] Image is null!\n");
-    }
-
-    glGenTextures(1, &this->_texture);
-    glBindTexture(GL_TEXTURE_2D, this->_texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGBA,
-        this->_image_width,
-        this->_image_height,
-        0,
-        GL_RGBA,
-        GL_UNSIGNED_BYTE,
-        this->_image_data
-    );
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    fprintf(stderr, "Object::init_texture() - texture: %d\n", this->_texture);
-}
-
-int32_t Object::x() const
-{
-    return this->_x;
-}
-
-int32_t Object::y() const
-{
-    return this->_y;
-}
-
-int32_t Object::viewport_x() const
-{
-    return this->_x;
-}
-
-int32_t Object::viewport_y() const
-{
-    return surface.scaled_height() - (this->_y) - (this->_height * surface.scale());
-}
-
-uint32_t Object::width() const
-{
-    return this->_width;
-}
-
-uint32_t Object::height() const
-{
-    return this->_height;
-}
-
-void Object::set_x(int32_t x)
-{
-    if (this->_x != x) {
-        this->_x = x;
-    }
-}
-
-void Object::set_y(int32_t y)
-{
-    if (this->_y != y) {
-        this->_y = y;
-    }
-}
-
-uint32_t Object::scaled_width() const
-{
-    return this->_width * surface.scale();
-}
-
-uint32_t Object::scaled_height() const
-{
-    return this->_height * surface.scale();
-}
-
-GLuint Object::texture() const
-{
-    return this->_texture;
-}
-
-std::vector<glm::vec3> Object::vertices() const
-{
-    std::vector<glm::vec3> v;
-
-    // Top right.
-    v.push_back(glm::vec3(
-        this->_width / WINDOW_WIDTH,
-        this->_height / WINDOW_HEIGHT,
-        0.0f
-    ));
-
-    // Bottom right.
-    v.push_back(glm::vec3(
-        this->_width / WINDOW_WIDTH,
-        -(this->_height / WINDOW_HEIGHT),
-        0.0f
-    ));
-
-    // Bottom left.
-    v.push_back(glm::vec3(
-        -(this->_width / WINDOW_WIDTH),
-        -(this->_height / WINDOW_HEIGHT),
-        0.0f
-    ));
-
-    // Top left.
-    v.push_back(glm::vec3(
-        -(1.0f - ((float)this->_x / WINDOW_WIDTH)),
-        (1.0f - ((float)this->_y / WINDOW_HEIGHT)),
-        0.0f
-    ));
-
-    return v;
-}
-
-} // namespace gl
-
 std::vector<gl::Object> objects;
 std::vector<glm::ivec3> vectors;
 
-gl::Object cursor_object(0, 0, 12, 12);
+gl::Object cursor_object(&surface, 0, 0, 12, 12);
 glm::ivec3 cursor_vector;
 
 /*
@@ -1039,21 +789,21 @@ static void recreate_window()
 static void create_objects()
 {
     // Object 1.
-    gl::Object obj(0, 0, 200, 100);
+    gl::Object obj(&surface, 0, 0, 200, 100);
     obj.set_image((const uint8_t*)image_data, image_width, image_height);
     obj.init_texture();
     objects.push_back(obj);
     vectors.push_back(glm::ivec3(2, 4, 0));
 
     // Object 2.
-    gl::Object obj2(50, 150, 100, 100);
+    gl::Object obj2(&surface, 50, 150, 100, 100);
     obj2.set_image((const uint8_t*)image_data, image_width, image_height);
     obj2.init_texture();
     objects.push_back(obj2);
     vectors.push_back(glm::ivec3(4, 2, 0));
 
     // Object 3.
-    gl::Object obj3(0, 0, 64, 64);
+    gl::Object obj3(&surface, 0, 0, 64, 64);
     obj3.set_image((const uint8_t*)image_data, image_width, image_height);
     obj3.init_texture();
     objects.push_back(obj3);
@@ -1109,7 +859,7 @@ static void process_keyboard()
         }
         if (keyboard_state.should_processed(KEY_ENTER)) {
             fprintf(stderr, "Enter.\n");
-            gl::Object obj(0, 0, 128, 128);
+            gl::Object obj(&surface, 0, 0, 128, 128);
             obj.set_image((const uint8_t*)image_data, image_width, image_height);
             obj.init_texture();
             objects.push_back(obj);
