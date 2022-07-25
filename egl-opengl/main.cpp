@@ -562,6 +562,8 @@ int init(GLuint *program_object)
     return 1;
 }
 
+static void recreate_window();
+
 //=============
 // Pointer
 //=============
@@ -618,6 +620,9 @@ static void pointer_button_handler(void *data,
     (void)time;
     if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
         xdg_toplevel_move(xdg_toplevel, seat, serial);
+    } else if (button == BTN_RIGHT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        xdg_toplevel_resize(xdg_toplevel, seat, serial,
+            XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT);
     }
 }
 
@@ -848,6 +853,21 @@ static void xdg_toplevel_configure_handler(void *data,
     (void)width;
     (void)height;
     (void)states;
+    void *p_state;
+    enum xdg_toplevel_state state;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-arith"
+    wl_array_for_each(p_state, states) {
+        state = *((enum xdg_toplevel_state*)(p_state));
+        if (state == XDG_TOPLEVEL_STATE_RESIZING) {
+            fprintf(stderr, "Resizing! %dx%d\n", width, height);
+            if (width != 0 && height != 0) {
+                surface.set_size(width, height);
+                recreate_window();
+            }
+        }
+    }
+#pragma GCC diagnostic pop
 }
 
 static void xdg_toplevel_close_handler(void *data,
