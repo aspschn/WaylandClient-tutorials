@@ -19,7 +19,7 @@
 
 #include <cairo.h>
 
-#include "xdg-shell.h"
+#include "wayland-protocols/stable/xdg-shell.h"
 
 #define WINDOW_WIDTH 480
 #define WINDOW_HEIGHT 360
