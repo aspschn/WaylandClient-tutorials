@@ -11,6 +11,211 @@
 #include <wayland-protocols/stable/xdg-shell.h>
 
 //=============
+// Pointer
+//=============
+
+static void pointer_enter_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t serial,
+          struct wl_surface *surface,
+          wl_fixed_t surface_x,
+          wl_fixed_t surface_y)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)surface;
+    (void)surface_x;
+    (void)surface_y;
+}
+
+static void pointer_leave_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t serial,
+          struct wl_surface *surface)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)surface;
+}
+
+static void pointer_motion_handler(void *data,
+           struct wl_pointer *wl_pointer,
+           uint32_t time,
+           wl_fixed_t surface_x,
+           wl_fixed_t surface_y)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)surface_x;
+    (void)surface_y;
+}
+
+static void pointer_button_handler(void *data,
+           struct wl_pointer *wl_pointer,
+           uint32_t serial,
+           uint32_t time,
+           uint32_t button,
+           uint32_t state)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)serial;
+    (void)time;
+    (void)button;
+    (void)state;
+}
+
+static void pointer_axis_handler(void *data,
+         struct wl_pointer *wl_pointer,
+         uint32_t time,
+         uint32_t axis,
+         wl_fixed_t value)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)axis;
+    (void)value;
+}
+
+static void pointer_frame_handler(void *data,
+          struct wl_pointer *wl_pointer)
+{
+    (void)data;
+    (void)wl_pointer;
+}
+
+static void pointer_axis_source_handler(void *data,
+            struct wl_pointer *wl_pointer,
+            uint32_t axis_source)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)axis_source;
+}
+
+static void pointer_axis_stop_handler(void *data,
+          struct wl_pointer *wl_pointer,
+          uint32_t time,
+          uint32_t axis)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)time;
+    (void)axis;
+}
+
+static void pointer_axis_discrete_handler(void *data,
+              struct wl_pointer *wl_pointer,
+              uint32_t axis,
+              int32_t discrete)
+{
+    (void)data;
+    (void)wl_pointer;
+    (void)axis;
+    (void)discrete;
+}
+
+static const wl_pointer_listener pointer_listener = {
+    .enter = pointer_enter_handler,
+    .leave = pointer_leave_handler,
+    .motion = pointer_motion_handler,
+    .button = pointer_button_handler,
+    .axis = pointer_axis_handler,
+    .frame = pointer_frame_handler,
+    .axis_source = pointer_axis_source_handler,
+    .axis_stop = pointer_axis_stop_handler,
+    .axis_discrete = pointer_axis_discrete_handler,
+};
+
+//=============
+// Keyboard
+//=============
+
+static void keyboard_keymap_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t format, int fd, uint32_t size)
+{
+    (void)data;
+    (void)keyboard;
+    (void)format;
+    (void)fd;
+    (void)size;
+}
+
+static void keyboard_enter_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)surface;
+    (void)keys;
+}
+
+static void keyboard_leave_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, struct wl_surface *surface)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)surface;
+}
+
+static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)time;
+    (void)key;
+    (void)state;
+    fprintf(stderr, "Key! %d\n", key);
+}
+
+static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
+        uint32_t serial,
+        uint32_t mods_depressed,
+        uint32_t mods_latched,
+        uint32_t mods_locked,
+        uint32_t group)
+{
+    (void)data;
+    (void)keyboard;
+    (void)serial;
+    (void)mods_depressed;
+    (void)mods_latched;
+    (void)mods_locked;
+    (void)group;
+}
+
+static void keyboard_repeat_info_handler(void *data,
+        struct wl_keyboard *keyboard,
+        int rate, int delay)
+{
+    (void)data;
+    (void)keyboard;
+    fprintf(stderr, "keyboard_repeat_info_handler()\n");
+    fprintf(stderr, " - rate: %d\n", rate);
+    fprintf(stderr, " - delay: %d\n", delay);
+
+//    keyboard_state.rate = rate;
+//    keyboard_state.delay = delay;
+}
+
+static const struct wl_keyboard_listener keyboard_listener = {
+    .keymap = keyboard_keymap_handler,
+    .enter = keyboard_enter_handler,
+    .leave = keyboard_leave_handler,
+    .key = keyboard_key_handler,
+    .modifiers = keyboard_modifiers_handler,
+    .repeat_info = keyboard_repeat_info_handler,
+};
+
+//=============
 // Seat
 //=============
 
@@ -127,6 +332,33 @@ Application::Application(int argc, char *argv[])
     (void)argv;
 
     app = this;
+
+    auto display = wl_display_connect(NULL);
+    this->set_wl_display(display);
+    if (display == NULL) {
+        fprintf(stderr, "Can't connect to display.\n");
+        exit(1);
+    }
+    printf("Connected to display.\n");
+
+    struct wl_registry *registry = wl_display_get_registry(display);
+    wl_registry_add_listener(registry, &registry_listener, NULL);
+
+    wl_display_dispatch(display);
+    wl_display_roundtrip(display);
+
+    if (this->wl_compositor() == NULL ||
+            this->xdg_wm_base() == NULL) {
+        fprintf(stderr, "Can't find compositor or xdg_wm_base.\n");
+        exit(1);
+    } else {
+        fprintf(stderr, "Found compositor and xdg_wm_base.\n");
+    }
+
+    xdg_wm_base_add_listener(this->xdg_wm_base(),
+        &xdg_wm_base_listener, NULL);
+
+    wl_display_roundtrip(this->wl_display());
 }
 
 struct wl_display* Application::wl_display()

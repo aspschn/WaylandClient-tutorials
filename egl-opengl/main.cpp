@@ -19,6 +19,7 @@
 
 #include <cairo.h>
 
+#include <example/application.h>
 #include <example/surface.h>
 #include <example/gl/context.h>
 #include <example/gl/object.h>
@@ -28,17 +29,9 @@
 #define WINDOW_WIDTH 480
 #define WINDOW_HEIGHT 360
 
-struct wl_display *display = NULL;
-struct wl_compositor *compositor = NULL;
-struct wl_subcompositor *subcompositor = NULL;
-struct wl_surface *wl_surface;
-struct wl_egl_window *egl_window;
-struct wl_region *region;
-struct wl_seat *seat = NULL;
-struct wl_keyboard *keyboard = NULL;
-struct wl_pointer *pointer = NULL;
+struct wl_surface *wl_surface = NULL;
+struct wl_egl_window *egl_window = NULL;
 
-struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface = NULL;
 struct xdg_toplevel *xdg_toplevel = NULL;
 
@@ -367,12 +360,6 @@ static void pointer_button_handler(void *data,
     (void)wl_pointer;
     (void)serial;
     (void)time;
-    if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        xdg_toplevel_move(xdg_toplevel, seat, serial);
-    } else if (button == BTN_RIGHT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-        xdg_toplevel_resize(xdg_toplevel, seat, serial,
-            XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT);
-    }
 }
 
 static void pointer_axis_handler(void *data,
@@ -540,18 +527,6 @@ static void seat_capabilities_handler(void *data, struct wl_seat *wl_seat,
     (void)data;
     (void)wl_seat;
     enum wl_seat_capability caps = (enum wl_seat_capability)caps_uint;
-
-    fprintf(stderr, "seat_capabilities_handler()\n");
-
-    if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
-        fprintf(stderr, " - Has keyboard!\n");
-        keyboard = wl_seat_get_keyboard(seat);
-        wl_keyboard_add_listener(keyboard, &keyboard_listener, NULL);
-    }
-    if (caps & WL_SEAT_CAPABILITY_POINTER) {
-        pointer = wl_seat_get_pointer(seat);
-        wl_pointer_add_listener(pointer, &pointer_listener, NULL);
-    }
 }
 
 static void seat_name_handler(void *data, struct wl_seat *seat,
@@ -638,29 +613,10 @@ static void global_registry_handler(void *data, struct wl_registry *registry,
         uint32_t id, const char *interface, uint32_t version)
 {
     (void)data;
-
-    if (strcmp(interface, "wl_compositor") == 0) {
-        fprintf(stderr, "Interface is <wl_compositor>.\n");
-        compositor = (struct wl_compositor*)wl_registry_bind(
-            registry,
-            id,
-            &wl_compositor_interface,
-            version
-        );
-    } else if (strcmp(interface, "xdg_wm_base") == 0) {
-        xdg_wm_base = (struct xdg_wm_base*)wl_registry_bind(registry,
-            id, &xdg_wm_base_interface, 1);
-    } else if (strcmp(interface, "wl_subcompositor") == 0) {
-        subcompositor = (struct wl_subcompositor*)wl_registry_bind(registry,
-            id, &wl_subcompositor_interface, 1);
-    } else if (strcmp(interface, "wl_seat") == 0) {
-        seat = (struct wl_seat*)wl_registry_bind(registry,
-            id, &wl_seat_interface, 5);
-        wl_seat_add_listener(seat, &seat_listener, NULL);
-    } else {
-        printf("(%d) Got a registry event for <%s> id <%d>\n",
-            version, interface, id);
-    }
+    (void)registry;
+    (void)id;
+    (void)interface;
+    (void)version;
 }
 
 static void global_registry_remover(void *data, struct wl_registry *registry,
@@ -685,7 +641,7 @@ static void gl_info()
 
 static void init_egl()
 {
-    egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    egl_display = eglGetDisplay((EGLNativeDisplayType)app->wl_display());
     if (egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
         exit(1);
@@ -927,39 +883,16 @@ static void draw_frame(gl::Context *context)
     glDeleteBuffers(1, &vao);
 }
 
-static void get_server_references()
-{
-    display = wl_display_connect(NULL);
-    if (display == NULL) {
-        fprintf(stderr, "Can't connect to display.\n");
-        exit(1);
-    }
-    printf("Connected to display.\n");
-
-    struct wl_registry *registry = wl_display_get_registry(display);
-    wl_registry_add_listener(registry, &registry_listener, NULL);
-
-    wl_display_dispatch(display);
-    wl_display_roundtrip(display);
-
-    if (compositor == NULL || xdg_wm_base == NULL) {
-        fprintf(stderr, "Can't find compositor or xdg_wm_base.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Found compositor and xdg_wm_base.\n");
-    }
-}
-
 int main(int argc, char *argv[])
 {
     (void)argc;
     (void)argv;
 
-    get_server_references();
+    Application application(argc, argv);
 
     // Check surface.
     fprintf(stderr, " - Checking surface...\n");
-    wl_surface = wl_compositor_create_surface(compositor);
+    wl_surface = wl_compositor_create_surface(app->wl_compositor());
     if (wl_surface == NULL) {
         fprintf(stderr, "Can't create surface.\n");
         exit(1);
@@ -971,11 +904,10 @@ int main(int argc, char *argv[])
     // wl_subsurface_set_position(subsurface, -10, -10);
     wl_surface_set_buffer_scale(wl_surface, 2);
 
-    xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
-
     // Check xdg surface.
     fprintf(stderr, " - Checking xdg surface...\n");
-    xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, wl_surface);
+    xdg_surface = xdg_wm_base_get_xdg_surface(app->xdg_wm_base(),
+        wl_surface);
     if (xdg_surface == NULL) {
         fprintf(stderr, "Can't create xdg surface.\n");
         exit(1);
@@ -994,7 +926,7 @@ int main(int argc, char *argv[])
     // MUST COMMIT! or not working on weston.
     wl_surface_commit(wl_surface);
 
-    wl_display_roundtrip(display);
+    wl_display_roundtrip(app->wl_display());
 
     // create_opaque_region();
     if (!GL_VERSION_4_6) {
@@ -1026,7 +958,7 @@ int main(int argc, char *argv[])
 
     draw_frame(&context);
 
-    int res = wl_display_dispatch(display);
+    int res = wl_display_dispatch(app->wl_display());
     while (res != -1) {
         // Process keyboard state.
         process_keyboard();
@@ -1034,11 +966,11 @@ int main(int argc, char *argv[])
         move_objects();
 
         draw_frame(&context);
-        res = wl_display_dispatch(display);
+        res = wl_display_dispatch(app->wl_display());
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);
 
-    wl_display_disconnect(display);
+    wl_display_disconnect(app->wl_display());
     printf("Disconnected from display.\n");
 
     return 0;
