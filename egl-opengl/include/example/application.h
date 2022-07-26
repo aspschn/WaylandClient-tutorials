@@ -15,6 +15,27 @@ class Application
 public:
     Application(int argc, char *argv[]);
 
+    struct wl_display* wl_display();
+    void set_wl_display(struct wl_display *display);
+
+    struct wl_compositor* wl_compositor();
+    void set_wl_compositor(struct wl_compositor *compositor);
+
+    struct wl_subcompositor* wl_subcompositor();
+    void set_wl_subcompositor(struct wl_subcompositor *subcompositor);
+
+    struct wl_seat* wl_seat();
+    void set_wl_seat(struct wl_seat *seat);
+
+    struct wl_keyboard* wl_keyboard();
+    void set_wl_keyboard(struct wl_keyboard *keyboard);
+
+    struct wl_pointer* wl_pointer();
+    void set_wl_pointer(struct wl_pointer *pointer);
+
+    struct xdg_wm_base* xdg_wm_base();
+    void set_xdg_wm_base(struct xdg_wm_base *wm_base);
+
 private:
     struct wl_display *_wl_display;
     struct wl_compositor *_wl_compositor;
