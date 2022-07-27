@@ -111,6 +111,8 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
     } else {
         fprintf(stderr, "Made current failed.\n");
     }
+
+    app->add_surface(this);
 }
 
 uint32_t Surface::width() const
