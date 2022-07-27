@@ -202,8 +202,8 @@ static void keyboard_repeat_info_handler(void *data,
     fprintf(stderr, " - rate: %d\n", rate);
     fprintf(stderr, " - delay: %d\n", delay);
 
-//    keyboard_state.rate = rate;
-//    keyboard_state.delay = delay;
+    app->set_keyboard_rate(rate);
+    app->set_keyboard_delay(delay);
 }
 
 static const struct wl_keyboard_listener keyboard_listener = {
@@ -331,6 +331,10 @@ Application::Application(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
+    // Init.
+    this->_keyboard_rate = 0;
+    this->_keyboard_delay = 0;
+
     app = this;
 
     auto display = wl_display_connect(NULL);
@@ -429,6 +433,26 @@ struct xdg_wm_base* Application::xdg_wm_base()
 void Application::set_xdg_wm_base(struct xdg_wm_base *wm_base)
 {
     this->_xdg_wm_base = wm_base;
+}
+
+uint32_t Application::keyboard_rate() const
+{
+    return this->_keyboard_rate;
+}
+
+uint32_t Application::keyboard_delay() const
+{
+    return this->_keyboard_delay;
+}
+
+void Application::set_keyboard_rate(uint32_t rate)
+{
+    this->_keyboard_rate = rate;
+}
+
+void Application::set_keyboard_delay(uint32_t delay)
+{
+    this->_keyboard_delay = delay;
 }
 
 Application *app = nullptr;

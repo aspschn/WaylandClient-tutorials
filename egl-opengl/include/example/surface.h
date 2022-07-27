@@ -10,6 +10,8 @@
 // Wayland protocols
 #include <wayland-protocols/stable/xdg-shell.h>
 
+#include <example/keyboard-state.h>
+
 class Surface
 {
 public:
@@ -34,6 +36,8 @@ public:
     struct wl_surface* wl_surface();
     struct xdg_surface* xdg_surface();
     struct xdg_toplevel* xdg_toplevel();
+
+    KeyboardState keyboard_state;
 
 private:
     Surface::Type _type;

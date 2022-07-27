@@ -36,6 +36,11 @@ public:
     struct xdg_wm_base* xdg_wm_base();
     void set_xdg_wm_base(struct xdg_wm_base *wm_base);
 
+    uint32_t keyboard_rate() const;
+    uint32_t keyboard_delay() const;
+    void set_keyboard_rate(uint32_t rate);
+    void set_keyboard_delay(uint32_t delay);
+
 private:
     struct wl_display *_wl_display;
     struct wl_compositor *_wl_compositor;
@@ -44,6 +49,9 @@ private:
     struct wl_keyboard *_wl_keyboard;
     struct wl_pointer *_wl_pointer;
     struct xdg_wm_base *_xdg_wm_base;
+
+    uint32_t _keyboard_rate;
+    uint32_t _keyboard_delay;
 };
 
 // Singleton object.

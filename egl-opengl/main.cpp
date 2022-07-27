@@ -55,48 +55,12 @@ GLuint indices[] = {
 
 std::shared_ptr<Surface> surface = nullptr;
 
-//=================
-// KeyboardState
-//=================
-
-class KeyboardState
-{
-public:
-    uint32_t rate;
-    uint32_t delay;
-
-    bool pressed;       // Keyboard is pressed.
-    uint32_t key;       // Pressed key.
-    bool repeat;        // Keyboard is repeating.
-    bool processed;     // Key processed first time.
-    uint64_t time;
-    uint64_t pressed_time;  // Key pressed time in milliseconds.
-    uint64_t elapsed_time;  // Key elapsed time in milliseconds.
-
-    bool repeating() const
-    {
-        if (pressed_time == 0) {
-            return false;
-        }
-        return elapsed_time - pressed_time >= delay;
-    }
-
-    bool should_processed(uint32_t key)
-    {
-        if (this->key == key && (!this->processed || this->repeating())) {
-            return true;
-        }
-
-        return false;
-    }
-};
-
 KeyboardState keyboard_state;
 
 std::vector<gl::Object> objects;
 std::vector<glm::ivec3> vectors;
 
-gl::Object cursor_object(&surface, 0, 0, 12, 12);
+std::shared_ptr<gl::Object> cursor_object = nullptr;
 glm::ivec3 cursor_vector;
 
 /*
@@ -583,7 +547,7 @@ static void xdg_toplevel_configure_handler(void *data,
         if (state == XDG_TOPLEVEL_STATE_RESIZING) {
             fprintf(stderr, "Resizing! %dx%d\n", width, height);
             if (width != 0 && height != 0) {
-                surface.set_size(width, height);
+                surface->set_size(width, height);
                 recreate_window();
             }
         }
@@ -650,7 +614,7 @@ static void init_egl()
 static void create_window(gl::Context *context)
 {
     egl_window = wl_egl_window_create(wl_surface,
-        surface.scaled_width(), surface.scaled_height());
+        surface->scaled_width(), surface->scaled_height());
     if (egl_window == EGL_NO_SURFACE) {
         fprintf(stderr, "Can't create egl window.\n");
         exit(1);
@@ -682,34 +646,35 @@ static void create_window(gl::Context *context)
 static void recreate_window()
 {
 //    eglDestroySurface(egl_display, egl_surface);
-    wl_egl_window_resize(egl_window, surface.scaled_width(), surface.scaled_height(), 0, 0);
+    wl_egl_window_resize(egl_window,
+        surface->scaled_width(), surface->scaled_height(), 0, 0);
 }
 
 static void create_objects()
 {
     // Object 1.
-    gl::Object obj(&surface, 0, 0, 200, 100);
+    gl::Object obj(surface.get(), 0, 0, 200, 100);
     obj.set_image((const uint8_t*)image_data, image_width, image_height);
     obj.init_texture();
     objects.push_back(obj);
     vectors.push_back(glm::ivec3(2, 4, 0));
 
     // Object 2.
-    gl::Object obj2(&surface, 50, 150, 100, 100);
+    gl::Object obj2(surface.get(), 50, 150, 100, 100);
     obj2.set_image((const uint8_t*)image_data, image_width, image_height);
     obj2.init_texture();
     objects.push_back(obj2);
     vectors.push_back(glm::ivec3(4, 2, 0));
 
     // Object 3.
-    gl::Object obj3(&surface, 0, 0, 64, 64);
+    gl::Object obj3(surface.get(), 0, 0, 64, 64);
     obj3.set_image((const uint8_t*)image_data, image_width, image_height);
     obj3.init_texture();
     objects.push_back(obj3);
     vectors.push_back(glm::ivec3(6, 4, 0));
 
-    cursor_object.set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
-    cursor_object.init_texture();
+    cursor_object->set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
+    cursor_object->init_texture();
 }
 
 static void move_objects()
@@ -718,11 +683,11 @@ static void move_objects()
         objects[i].set_x(objects[i].x() + vectors[i].x);
         objects[i].set_y(objects[i].y() + vectors[i].y);
         // Bottom bound.
-        if (objects[i].y() + objects[i].scaled_height() >= surface.scaled_height()) {
+        if (objects[i].y() + objects[i].scaled_height() >= surface->scaled_height()) {
             vectors[i].y = -(vectors[i].y);
         }
         // Right bound.
-        if (objects[i].x() + objects[i].scaled_width() >= surface.scaled_width()) {
+        if (objects[i].x() + objects[i].scaled_width() >= surface->scaled_width()) {
             vectors[i].x = -(vectors[i].x);
         }
         // Top bound.
@@ -736,8 +701,8 @@ static void move_objects()
     }
 
     // Cursor.
-    cursor_object.set_x(cursor_object.x() + cursor_vector.x);
-    cursor_object.set_y(cursor_object.y() + cursor_vector.y);
+    cursor_object->set_x(cursor_object->x() + cursor_vector.x);
+    cursor_object->set_y(cursor_object->y() + cursor_vector.y);
 }
 
 static void process_keyboard()
@@ -758,7 +723,7 @@ static void process_keyboard()
         }
         if (keyboard_state.should_processed(KEY_ENTER)) {
             fprintf(stderr, "Enter.\n");
-            gl::Object obj(&surface, 0, 0, 128, 128);
+            gl::Object obj(surface.get(), 0, 0, 128, 128);
             obj.set_image((const uint8_t*)image_data, image_width, image_height);
             obj.init_texture();
             objects.push_back(obj);
@@ -776,10 +741,10 @@ static void process_keyboard()
             cursor_vector.y = -2;
             cursor_vector.x = 0;
         } else if (keyboard_state.key == KEY_MINUS && !keyboard_state.processed) {
-            surface.set_size(surface.width() - 10, surface.height() - 10);
+            surface->set_size(surface->width() - 10, surface->height() - 10);
             recreate_window();
         } else if (keyboard_state.key == KEY_EQUAL && !keyboard_state.processed) {
-            surface.set_size(surface.width() + 10, surface.height() + 10);
+            surface->set_size(surface->width() + 10, surface->height() + 10);
             recreate_window();
         }
         keyboard_state.processed = true;
@@ -863,12 +828,12 @@ static void draw_frame(gl::Context *context)
         glEnableVertexAttribArray(1);
 
 //        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, cursor_object.texture());
+        glBindTexture(GL_TEXTURE_2D, cursor_object->texture());
 
         glBindVertexArray(vao);
 
-        glViewport(cursor_object.viewport_x(), cursor_object.viewport_y(),
-            cursor_object.scaled_width(), cursor_object.scaled_height());
+        glViewport(cursor_object->viewport_x(), cursor_object->viewport_y(),
+            cursor_object->scaled_width(), cursor_object->scaled_height());
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
@@ -891,6 +856,8 @@ int main(int argc, char *argv[])
         WINDOW_WIDTH, WINDOW_HEIGHT);
 
     wl_display_roundtrip(app->wl_display());
+
+    cursor_object = std::make_shared<gl::Object>(surface.get(), 0, 0, 12, 12);
 
     // create_opaque_region();
     if (!GL_VERSION_4_6) {

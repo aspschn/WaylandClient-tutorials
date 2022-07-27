@@ -67,6 +67,9 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
     this->_xdg_surface = nullptr;
     this->_xdg_toplevel = nullptr;
 
+    this->keyboard_state.rate = app->keyboard_rate();
+    this->keyboard_state.delay = app->keyboard_delay();
+
     // Wayland.
     this->_wl_surface = wl_compositor_create_surface(app->wl_compositor());
     if (this->_type == Surface::Type::Toplevel) {
