@@ -4,11 +4,16 @@
 // C
 #include <stdint.h>
 
+// C++
+#include <vector>
+
 // Wayland core
 #include <wayland-client.h>
 
 // Wayland protocols
 #include <wayland-protocols/stable/xdg-shell.h>
+
+class Surface;
 
 class Application
 {
@@ -41,6 +46,10 @@ public:
     void set_keyboard_rate(uint32_t rate);
     void set_keyboard_delay(uint32_t delay);
 
+    void add_surface(Surface *surface);
+    void remove_surface(Surface *surface);
+    std::vector<Surface*> surface_list() const;
+
 private:
     struct wl_display *_wl_display;
     struct wl_compositor *_wl_compositor;
@@ -52,6 +61,8 @@ private:
 
     uint32_t _keyboard_rate;
     uint32_t _keyboard_delay;
+
+    std::vector<Surface*> _surface_list;
 };
 
 // Singleton object.

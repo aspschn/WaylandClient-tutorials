@@ -20,6 +20,7 @@ public:
 private:
     EGLDisplay _egl_display;
 
+    EGLConfig *_egl_configs;
     EGLConfig _egl_config;
     EGLContext _egl_context;
 };

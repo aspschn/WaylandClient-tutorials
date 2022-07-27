@@ -455,4 +455,20 @@ void Application::set_keyboard_delay(uint32_t delay)
     this->_keyboard_delay = delay;
 }
 
+void Application::add_surface(Surface *surface)
+{
+    this->_surface_list.push_back(surface);
+}
+
+void Application::remove_surface(Surface *surface)
+{
+    (void)surface;
+    // TODO: Impl.
+}
+
+std::vector<Surface*> Application::surface_list() const
+{
+    return this->_surface_list;
+}
+
 Application *app = nullptr;

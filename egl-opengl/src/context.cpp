@@ -10,8 +10,9 @@ Context::Context(EGLDisplay display)
 {
     this->_egl_display = display;
 
+    this->_egl_configs = nullptr;
+
     EGLint major, minor, count, n, size;
-    EGLConfig *configs;
     EGLint config_attribs[] = {
         EGL_SURFACE_TYPE,
         EGL_WINDOW_BIT,
@@ -47,18 +48,21 @@ Context::Context(EGLDisplay display)
     eglGetConfigs(this->_egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
-    configs = (void**)calloc(count, sizeof *configs);
+    this->_egl_configs = new EGLConfig[count];
 
-    eglChooseConfig(this->_egl_display, config_attribs, configs, count, &n);
+    eglChooseConfig(this->_egl_display,
+        config_attribs, this->_egl_configs, count, &n);
 
     for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(this->_egl_display, configs[i], EGL_BUFFER_SIZE, &size);
+        eglGetConfigAttrib(this->_egl_display,
+            this->_egl_configs[i], EGL_BUFFER_SIZE, &size);
         printf("Buffersize for config %d is %d\n", i, size);
-        eglGetConfigAttrib(this->_egl_display, configs[i], EGL_RED_SIZE, &size);
+        eglGetConfigAttrib(this->_egl_display,
+            this->_egl_configs[i], EGL_RED_SIZE, &size);
         printf("Red size for config %d is %d.\n", i, size);
     }
     // Just choose the first one.
-    this->_egl_config = configs[0];
+    this->_egl_config = this->_egl_configs[0];
 
     this->_egl_context = eglCreateContext(this->_egl_display,
         this->_egl_config, EGL_NO_CONTEXT,

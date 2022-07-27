@@ -70,6 +70,8 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
     this->keyboard_state.rate = app->keyboard_rate();
     this->keyboard_state.delay = app->keyboard_delay();
 
+    this->_context = nullptr;
+
     // Wayland.
     this->_wl_surface = wl_compositor_create_surface(app->wl_compositor());
     if (this->_type == Surface::Type::Toplevel) {
@@ -83,6 +85,32 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
             nullptr);
     }
     wl_surface_commit(this->_wl_surface);
+
+    // GL context.
+    auto egl_display = eglGetDisplay((EGLNativeDisplayType)app->wl_display());;
+    this->_context = new gl::Context(egl_display);
+
+    // EGL init.
+    this->_wl_egl_window = wl_egl_window_create(this->_wl_surface,
+        this->scaled_width(), this->scaled_height());
+    if (this->_wl_egl_window == EGL_NO_SURFACE) {
+        fprintf(stderr, "Can't create egl window.\n");
+        return;
+    } else {
+        fprintf(stderr, "Created egl window.\n");
+    }
+
+    this->_egl_surface = eglCreateWindowSurface(egl_display,
+        this->_context->egl_config(),
+        (EGLNativeWindowType)this->_wl_egl_window,
+        NULL);
+    EGLBoolean made = eglMakeCurrent(egl_display,
+        this->_egl_surface, this->_egl_surface, this->_context->egl_context());
+    if (made) {
+        fprintf(stderr, "Made current.\n");
+    } else {
+        fprintf(stderr, "Made current failed.\n");
+    }
 }
 
 uint32_t Surface::width() const
@@ -129,4 +157,9 @@ struct xdg_surface* Surface::xdg_surface()
 struct xdg_toplevel* Surface::xdg_toplevel()
 {
     return this->_xdg_toplevel;
+}
+
+void Surface::swap_buffers()
+{
+    eglSwapBuffers(this->_context->egl_context(), this->_egl_surface);
 }
