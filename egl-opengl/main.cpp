@@ -4,6 +4,7 @@
 
 // C++
 #include <vector>
+#include <memory>
 
 #include <wayland-client.h>
 #include <wayland-egl.h>
@@ -29,11 +30,7 @@
 #define WINDOW_WIDTH 480
 #define WINDOW_HEIGHT 360
 
-struct wl_surface *wl_surface = NULL;
 struct wl_egl_window *egl_window = NULL;
-
-struct xdg_surface *xdg_surface = NULL;
-struct xdg_toplevel *xdg_toplevel = NULL;
 
 EGLDisplay egl_display;
 EGLSurface egl_surface;
@@ -56,7 +53,7 @@ GLuint indices[] = {
     1, 2, 3,    // second triangle
 };
 
-Surface surface(WINDOW_WIDTH, WINDOW_HEIGHT);
+std::shared_ptr<Surface> surface = nullptr;
 
 //=================
 // KeyboardState
@@ -890,41 +887,8 @@ int main(int argc, char *argv[])
 
     Application application(argc, argv);
 
-    // Check surface.
-    fprintf(stderr, " - Checking surface...\n");
-    wl_surface = wl_compositor_create_surface(app->wl_compositor());
-    if (wl_surface == NULL) {
-        fprintf(stderr, "Can't create surface.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created surface!\n");
-    }
-    // subsurface = wl_subcompositor_get_subsurface(subcompositor,
-    //     surface2, surface);
-    // wl_subsurface_set_position(subsurface, -10, -10);
-    wl_surface_set_buffer_scale(wl_surface, 2);
-
-    // Check xdg surface.
-    fprintf(stderr, " - Checking xdg surface...\n");
-    xdg_surface = xdg_wm_base_get_xdg_surface(app->xdg_wm_base(),
-        wl_surface);
-    if (xdg_surface == NULL) {
-        fprintf(stderr, "Can't create xdg surface.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created xdg surface!\n");
-    }
-    xdg_surface_add_listener(xdg_surface, &xdg_surface_listener, NULL);
-
-    xdg_toplevel = xdg_surface_get_toplevel(xdg_surface);
-    if (xdg_toplevel == NULL) {
-        exit(1);
-    }
-    xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
-
-
-    // MUST COMMIT! or not working on weston.
-    wl_surface_commit(wl_surface);
+    surface = std::make_shared<Surface>(Surface::Type::Toplevel,
+        WINDOW_WIDTH, WINDOW_HEIGHT);
 
     wl_display_roundtrip(app->wl_display());
 
@@ -952,7 +916,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error init!\n");
     }
 
-    wl_surface_commit(wl_surface);
+    wl_surface_commit(surface->wl_surface());
 
     create_objects();
 
