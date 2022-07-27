@@ -3,7 +3,33 @@
 // C
 #include <stdio.h>
 
+// OpenGL
+#include <GL/glew.h>
+
+// GLM
+#include <glm/glm.hpp>
+
 #include <example/application.h>
+#include <example/gl/object.h>
+
+static GLuint indices[] = {
+    0, 1, 3,    // first triangle
+    1, 2, 3,    // second triangle
+};
+
+static std::vector<glm::vec3> full_vertices = {
+    {  1.0f,  1.0f, 0.0f },
+    {  1.0f, -1.0f, 0.0f },
+    { -1.0f, -1.0f, 0.0f },
+    { -1.0f,  1.0f, 0.0f },
+};
+
+static GLfloat tex_coords[] = {
+    1.0f, 0.0f,
+    1.0f, -1.0f,
+    0.0f, -1.0f,
+    0.0f, 0.0f,
+};
 
 //==========
 // XDG
@@ -164,4 +190,69 @@ struct xdg_toplevel* Surface::xdg_toplevel()
 void Surface::swap_buffers()
 {
     eglSwapBuffers(this->_context->egl_context(), this->_egl_surface);
+}
+
+void Surface::draw_frame(GLuint program_object)
+{
+    eglMakeCurrent(this->_context->egl_display(),
+        this->_egl_surface, this->_egl_surface,
+        this->_context->egl_context());
+
+    glViewport(0, 0, this->scaled_width(), this->scaled_height());
+
+    // Clear the color buffer.
+    glClearColor(0.5, 0.5, 0.5, 0.8);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    // Use the program object.
+    glUseProgram(program_object);
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint ebo;
+    glGenBuffers(1, &ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    GLuint vbo[2];
+    glGenBuffers(2, vbo);
+
+    for (auto& object: this->_children) {
+        glBindVertexArray(vao);
+
+        // Position attribute.
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+        glBufferData(GL_ARRAY_BUFFER,
+            sizeof(glm::vec3) * full_vertices.size(),
+            full_vertices.data(),
+            GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(0);
+
+        // Texture coord attribute
+        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glEnableVertexAttribArray(1);
+
+//        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, object->texture());
+
+        glBindVertexArray(vao);
+
+        glViewport(object->viewport_x(), object->viewport_y(),
+            object->scaled_width(), object->scaled_height());
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    }
+
+    this->swap_buffers();
+
+    // Free.
+    glDeleteBuffers(2, vbo);
+    glDeleteBuffers(1, &ebo);
+    glDeleteBuffers(1, &vao);
 }

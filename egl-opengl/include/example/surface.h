@@ -4,6 +4,12 @@
 // C
 #include <stdint.h>
 
+// C++
+#include <vector>
+
+// OpenGL
+#include <GL/glew.h>
+
 // EGL
 #include <EGL/egl.h>
 
@@ -16,6 +22,12 @@
 
 #include <example/gl/context.h>
 #include <example/keyboard-state.h>
+
+namespace gl {
+
+class Object;
+
+} // namespace gl
 
 class Surface
 {
@@ -44,6 +56,8 @@ public:
 
     void swap_buffers();
 
+    void draw_frame(GLuint program_object);
+
     KeyboardState keyboard_state;
 
 private:
@@ -64,6 +78,7 @@ private:
     struct wl_egl_window *_wl_egl_window;
 
     gl::Context *_context;
+    std::vector<gl::Object*> _children;
 };
 
 #endif /* _SURFACE_H */

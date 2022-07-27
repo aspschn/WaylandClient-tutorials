@@ -73,6 +73,11 @@ Context::Context(EGLDisplay display)
         this->_egl_context);
 }
 
+EGLDisplay Context::egl_display()
+{
+    return this->_egl_display;
+}
+
 EGLConfig Context::egl_config()
 {
     return this->_egl_config;

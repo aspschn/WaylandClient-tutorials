@@ -14,6 +14,7 @@ class Context
 public:
     Context(EGLDisplay display);
 
+    EGLDisplay egl_display();
     EGLConfig egl_config();
     EGLContext egl_context();
 

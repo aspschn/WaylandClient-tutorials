@@ -32,8 +32,6 @@
 
 struct wl_egl_window *egl_window = NULL;
 
-EGLDisplay egl_display;
-EGLSurface egl_surface;
 GLuint program_object;
 
 //struct wl_subsurface *subsurface;
@@ -600,49 +598,6 @@ static void gl_info()
     fprintf(stderr, "OpenGL version: %s\n", version);
 }
 
-static void init_egl()
-{
-    egl_display = eglGetDisplay((EGLNativeDisplayType)app->wl_display());
-    if (egl_display == EGL_NO_DISPLAY) {
-        fprintf(stderr, "Can't create egl display\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created egl display.\n");
-    }
-}
-
-static void create_window(gl::Context *context)
-{
-    egl_window = wl_egl_window_create(wl_surface,
-        surface->scaled_width(), surface->scaled_height());
-    if (egl_window == EGL_NO_SURFACE) {
-        fprintf(stderr, "Can't create egl window.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Created egl window.\n");
-    }
-
-    egl_surface = eglCreateWindowSurface(egl_display,
-        context->egl_config(),
-        egl_window,
-        NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, context->egl_context())) {
-        fprintf(stderr, "Made current.\n");
-    } else {
-        fprintf(stderr, "Made current failed.\n");
-    }
-
-    glClearColor(0.5, 0.5, 0.5, 0.8);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glFlush();
-
-    if (eglSwapBuffers(egl_display, egl_surface)) {
-        fprintf(stderr, "Swapped buffers.\n");
-    } else {
-        fprintf(stderr, "Swapped buffers failed.\n");
-    }
-}
-
 static void recreate_window()
 {
 //    eglDestroySurface(egl_display, egl_surface);
@@ -754,97 +709,6 @@ static void process_keyboard()
     }
 }
 
-static void draw_frame(gl::Context *context)
-{
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, context->egl_context());
-
-    // Clear the color buffer.
-    glClearColor(0.5, 0.5, 0.5, 0.8);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // Use the program object.
-    glUseProgram(program_object);
-
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint ebo;
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    GLuint vbo[2];
-    glGenBuffers(2, vbo);
-
-    for (auto& object: objects) {
-        glBindVertexArray(vao);
-
-        // Position attribute.
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-        glBufferData(GL_ARRAY_BUFFER,
-            sizeof(glm::vec3) * full_vertices.size(),
-            full_vertices.data(),
-            GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(0);
-
-        // Texture coord attribute
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(1);
-
-//        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, object.texture());
-
-        glBindVertexArray(vao);
-
-        glViewport(object.viewport_x(), object.viewport_y(),
-            object.scaled_width(), object.scaled_height());
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-    }
-
-    {
-        glBindVertexArray(vao);
-
-        // Position attribute.
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-        glBufferData(GL_ARRAY_BUFFER,
-            sizeof(glm::vec3) * full_vertices.size(),
-            full_vertices.data(),
-            GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(0);
-
-        // Texture coord attribute
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(tex_coords), tex_coords, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glEnableVertexAttribArray(1);
-
-//        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, cursor_object->texture());
-
-        glBindVertexArray(vao);
-
-        glViewport(cursor_object->viewport_x(), cursor_object->viewport_y(),
-            cursor_object->scaled_width(), cursor_object->scaled_height());
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
-    }
-
-    eglSwapBuffers(egl_display, egl_surface);
-
-    // Free.
-    glDeleteBuffers(2, vbo);
-    glDeleteBuffers(1, &ebo);
-    glDeleteBuffers(1, &vao);
-}
-
 int main(int argc, char *argv[])
 {
     (void)argc;
@@ -865,8 +729,6 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, "Has GL_VERSION_4_6\n");
 
-    init_egl();
-    gl::Context context(egl_display);
     gl_info();
 
     fprintf(stderr, "GLEW experimental: %d\n", glewExperimental);
@@ -877,8 +739,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    create_window(&context);
-
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
@@ -887,7 +747,9 @@ int main(int argc, char *argv[])
 
     create_objects();
 
-    draw_frame(&context);
+    surface->swap_buffers();
+
+    surface->draw_frame(program_object);
 
     int res = wl_display_dispatch(app->wl_display());
     while (res != -1) {
@@ -896,7 +758,7 @@ int main(int argc, char *argv[])
         // Move.
         move_objects();
 
-        draw_frame(&context);
+        surface->draw_frame(program_object);
         res = wl_display_dispatch(app->wl_display());
     }
     fprintf(stderr, "wl_display_dispatch() - res: %d\n", res);
