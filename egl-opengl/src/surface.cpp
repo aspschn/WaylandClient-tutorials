@@ -240,6 +240,7 @@ void Surface::draw_frame(GLuint program_object)
         glEnableVertexAttribArray(1);
 
 //        glGenerateMipmap(GL_TEXTURE_2D);
+        fprintf(stderr, "Bind texture. Texture: %d\n", object->texture());
         glBindTexture(GL_TEXTURE_2D, object->texture());
 
         glBindVertexArray(vao);
@@ -255,4 +256,9 @@ void Surface::draw_frame(GLuint program_object)
     glDeleteBuffers(2, vbo);
     glDeleteBuffers(1, &ebo);
     glDeleteBuffers(1, &vao);
+}
+
+void Surface::add_child(gl::Object *child)
+{
+    this->_children.push_back(child);
 }

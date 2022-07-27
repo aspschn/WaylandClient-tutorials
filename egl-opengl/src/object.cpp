@@ -24,6 +24,8 @@ Object::Object(Surface *surface, int32_t x, int32_t y,
     this->_image_width = 0;
     this->_image_height = 0;
     this->_texture = 0;
+
+    this->_surface->add_child(this);
 }
 
 void Object::set_image(const uint8_t *image_data,

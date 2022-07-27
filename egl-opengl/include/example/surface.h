@@ -58,6 +58,8 @@ public:
 
     void draw_frame(GLuint program_object);
 
+    void add_child(gl::Object *child);
+
     KeyboardState keyboard_state;
 
 private:
