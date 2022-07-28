@@ -205,7 +205,6 @@ void Surface::swap_buffers()
         fprintf(stderr, "Failed to swap buffers!\n");
         return;
     }
-    fprintf(stderr, "Buffers swapped.\n");
 }
 
 void Surface::draw_frame(GLuint program_object)
@@ -256,8 +255,6 @@ void Surface::draw_frame(GLuint program_object)
         glEnableVertexAttribArray(1);
 
 //        glGenerateMipmap(GL_TEXTURE_2D);
-        fprintf(stderr, "Bind texture. Object: %p, Texture: %d\n",
-            object, object->texture());
         glBindTexture(GL_TEXTURE_2D, object->texture());
 
         glBindVertexArray(vao);
@@ -278,4 +275,9 @@ void Surface::draw_frame(GLuint program_object)
 void Surface::add_child(gl::Object *child)
 {
     this->_children.push_back(child);
+}
+
+std::vector<gl::Object*> Surface::children() const
+{
+    return this->_children;
 }

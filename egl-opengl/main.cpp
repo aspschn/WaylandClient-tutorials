@@ -56,7 +56,6 @@ Surface *surface = nullptr;
 
 KeyboardState keyboard_state;
 
-std::vector<gl::Object> objects;
 std::vector<glm::ivec3> vectors;
 
 //std::shared_ptr<gl::Object> cursor_object = nullptr;
@@ -605,23 +604,25 @@ static void create_objects()
 
 static void move_objects()
 {
-    for (uint64_t i = 0; i < objects.size(); ++i) {
-        objects[i].set_x(objects[i].x() + vectors[i].x);
-        objects[i].set_y(objects[i].y() + vectors[i].y);
+    for (uint64_t i = 0; i < surface->children().size(); ++i) {
+        auto object = surface->children()[i];
+
+        object->set_x(object->x() + vectors[i].x);
+        object->set_y(object->y() + vectors[i].y);
         // Bottom bound.
-        if (objects[i].y() + objects[i].scaled_height() >= surface->scaled_height()) {
+        if (object->y() + object->scaled_height() >= surface->scaled_height()) {
             vectors[i].y = -(vectors[i].y);
         }
         // Right bound.
-        if (objects[i].x() + objects[i].scaled_width() >= surface->scaled_width()) {
+        if (object->x() + object->scaled_width() >= surface->scaled_width()) {
             vectors[i].x = -(vectors[i].x);
         }
         // Top bound.
-        if (objects[i].y() <= 0) {
+        if (object->y() <= 0) {
             vectors[i].y = -(vectors[i].y);
         }
         // Left bound.
-        if (objects[i].x() <= 0) {
+        if (object->x() <= 0) {
             vectors[i].x = -(vectors[i].x);
         }
     }
@@ -652,7 +653,6 @@ static void process_keyboard()
             gl::Object obj(surface, 0, 0, 128, 128);
             obj.set_image((const uint8_t*)image_data, image_width, image_height);
             obj.init_texture();
-            objects.push_back(obj);
             vectors.push_back(glm::ivec3(2, 2, 0));
         } else if (keyboard_state.key == KEY_RIGHT && !keyboard_state.processed) {
             cursor_vector.x = 2;

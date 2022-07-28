@@ -50,6 +50,9 @@ public:
     void remove_surface(Surface *surface);
     std::vector<Surface*> surface_list() const;
 
+    Surface* keyboard_focus_surface() const;
+    void set_keyboard_focus_surface(Surface *surface);
+
 private:
     struct wl_display *_wl_display;
     struct wl_compositor *_wl_compositor;
@@ -63,6 +66,8 @@ private:
     uint32_t _keyboard_delay;
 
     std::vector<Surface*> _surface_list;
+
+    Surface *_keyboard_focus_surface;
 };
 
 // Singleton object.

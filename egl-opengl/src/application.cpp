@@ -10,6 +10,8 @@
 // Wayland protocols
 #include <wayland-protocols/stable/xdg-shell.h>
 
+#include <example/surface.h>
+
 //=============
 // Pointer
 //=============
@@ -146,13 +148,21 @@ static void keyboard_keymap_handler(void *data, struct wl_keyboard *keyboard,
 }
 
 static void keyboard_enter_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
+        uint32_t serial, struct wl_surface *wl_surface, struct wl_array *keys)
 {
     (void)data;
     (void)keyboard;
     (void)serial;
-    (void)surface;
+    (void)wl_surface;
     (void)keys;
+    fprintf(stderr, "Keyboard enter: wl_surface: %p\n", wl_surface);
+    // Find surface by wl_surface.
+    for (uint32_t i = 0; i < app->surface_list().size(); ++i) {
+        if (wl_surface == app->surface_list()[i]->wl_surface()) {
+            app->set_keyboard_focus_surface(app->surface_list()[i]);
+            break;
+        }
+    }
 }
 
 static void keyboard_leave_handler(void *data, struct wl_keyboard *keyboard,
@@ -335,6 +345,8 @@ Application::Application(int argc, char *argv[])
     this->_keyboard_rate = 0;
     this->_keyboard_delay = 0;
 
+    this->_keyboard_focus_surface = nullptr;
+
     app = this;
 
     auto display = wl_display_connect(NULL);
@@ -469,6 +481,11 @@ void Application::remove_surface(Surface *surface)
 std::vector<Surface*> Application::surface_list() const
 {
     return this->_surface_list;
+}
+
+void Application::set_keyboard_focus_surface(Surface *surface)
+{
+    this->_keyboard_focus_surface = surface;
 }
 
 Application *app = nullptr;

@@ -60,6 +60,8 @@ public:
 
     void add_child(gl::Object *child);
 
+    std::vector<gl::Object*> children() const;
+
     KeyboardState keyboard_state;
 
 private:
