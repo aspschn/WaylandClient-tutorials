@@ -51,14 +51,16 @@ GLuint indices[] = {
     1, 2, 3,    // second triangle
 };
 
-std::shared_ptr<Surface> surface = nullptr;
+//std::shared_ptr<Surface> surface = nullptr;
+Surface *surface = nullptr;
 
 KeyboardState keyboard_state;
 
 std::vector<gl::Object> objects;
 std::vector<glm::ivec3> vectors;
 
-std::shared_ptr<gl::Object> cursor_object = nullptr;
+//std::shared_ptr<gl::Object> cursor_object = nullptr;
+gl::Object *cursor_object = nullptr;
 glm::ivec3 cursor_vector;
 
 /*
@@ -476,31 +478,6 @@ static const struct wl_keyboard_listener keyboard_listener = {
     .repeat_info = keyboard_repeat_info_handler,
 };
 
-//=============
-// Seat
-//=============
-
-static void seat_capabilities_handler(void *data, struct wl_seat *wl_seat,
-        uint32_t caps_uint)
-{
-    (void)data;
-    (void)wl_seat;
-    enum wl_seat_capability caps = (enum wl_seat_capability)caps_uint;
-}
-
-static void seat_name_handler(void *data, struct wl_seat *seat,
-        const char *name)
-{
-    (void)data;
-    (void)seat;
-    (void)name;
-}
-
-static const struct wl_seat_listener seat_listener = {
-    .capabilities = seat_capabilities_handler,
-    .name = seat_name_handler,
-};
-
 //===========
 // XDG
 //===========
@@ -608,28 +585,22 @@ static void recreate_window()
 static void create_objects()
 {
     // Object 1.
-    gl::Object obj(surface.get(), 0, 0, 200, 100);
-    obj.set_image((const uint8_t*)image_data, image_width, image_height);
-    obj.init_texture();
-    objects.push_back(obj);
+    gl::Object *obj = new gl::Object(surface, 0, 0, 200, 100);
+    obj->set_image((const uint8_t*)image_data, image_width, image_height);
+    obj->init_texture();
     vectors.push_back(glm::ivec3(2, 4, 0));
 
     // Object 2.
-    gl::Object obj2(surface.get(), 50, 150, 100, 100);
-    obj2.set_image((const uint8_t*)image_data, image_width, image_height);
-    obj2.init_texture();
-    objects.push_back(obj2);
+    gl::Object *obj2 = new gl::Object(surface, 50, 150, 100, 100);
+    obj2->set_image((const uint8_t*)image_data, image_width, image_height);
+    obj2->init_texture();
     vectors.push_back(glm::ivec3(4, 2, 0));
 
     // Object 3.
-    gl::Object obj3(surface.get(), 0, 0, 64, 64);
-    obj3.set_image((const uint8_t*)image_data, image_width, image_height);
-    obj3.init_texture();
-    objects.push_back(obj3);
+    gl::Object *obj3 = new gl::Object(surface, 0, 0, 64, 64);
+    obj3->set_image((const uint8_t*)image_data, image_width, image_height);
+    obj3->init_texture();
     vectors.push_back(glm::ivec3(6, 4, 0));
-
-    cursor_object->set_image((const uint8_t*)cursor_data, cursor_width, cursor_height);
-    cursor_object->init_texture();
 }
 
 static void move_objects()
@@ -678,7 +649,7 @@ static void process_keyboard()
         }
         if (keyboard_state.should_processed(KEY_ENTER)) {
             fprintf(stderr, "Enter.\n");
-            gl::Object obj(surface.get(), 0, 0, 128, 128);
+            gl::Object obj(surface, 0, 0, 128, 128);
             obj.set_image((const uint8_t*)image_data, image_width, image_height);
             obj.init_texture();
             objects.push_back(obj);
@@ -716,12 +687,11 @@ int main(int argc, char *argv[])
 
     Application application(argc, argv);
 
-    surface = std::make_shared<Surface>(Surface::Type::Toplevel,
-        WINDOW_WIDTH, WINDOW_HEIGHT);
+//    surface = std::make_shared<Surface>(Surface::Type::Toplevel,
+//        WINDOW_WIDTH, WINDOW_HEIGHT);
+    surface = new Surface(Surface::Type::Toplevel, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     wl_display_roundtrip(app->wl_display());
-
-    cursor_object = std::make_shared<gl::Object>(surface.get(), 0, 0, 12, 12);
 
     // create_opaque_region();
     if (!GL_VERSION_4_6) {
@@ -742,12 +712,16 @@ int main(int argc, char *argv[])
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
+    //    cursor_object = std::make_shared<gl::Object>(surface, 0, 0, 12, 12);
+    fprintf(stderr, "Creating cursor object.\n");
+    cursor_object = new gl::Object(surface, 0, 0, 12, 12);
+    cursor_object->set_image((uint8_t*)cursor_data, cursor_width, cursor_height);
+    cursor_object->init_texture();
+    fprintf(stderr, " - %p\n", cursor_object);
 
     wl_surface_commit(surface->wl_surface());
 
     create_objects();
-
-    surface->swap_buffers();
 
     surface->draw_frame(program_object);
 

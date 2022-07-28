@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 // OpenGL
+#define GLEW_EGL
 #include <GL/glew.h>
 
 // GLM
@@ -64,6 +65,8 @@ static void xdg_toplevel_configure_handler(void *data,
         //
     }
 #pragma GCC diagnostic pop
+
+    fprintf(stderr, "xdg_toplevel_configure_handler()\n");
 }
 
 static void xdg_toplevel_close_handler(void *data,
@@ -101,6 +104,7 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
     // Wayland.
     this->_wl_surface = wl_compositor_create_surface(app->wl_compositor());
     if (this->_type == Surface::Type::Toplevel) {
+        fprintf(stderr, "Surface is Toplevel.\n");
         this->_xdg_surface = xdg_wm_base_get_xdg_surface(app->xdg_wm_base(),
             this->_wl_surface);
         xdg_surface_add_listener(this->_xdg_surface, &xdg_surface_listener,
@@ -123,7 +127,8 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
         fprintf(stderr, "Can't create egl window.\n");
         return;
     } else {
-        fprintf(stderr, "Created egl window.\n");
+        fprintf(stderr, "Created egl window. %dx%d\n",
+            this->scaled_width(), this->scaled_height());
     }
 
     this->_egl_surface = eglCreateWindowSurface(egl_display,
@@ -189,7 +194,13 @@ struct xdg_toplevel* Surface::xdg_toplevel()
 
 void Surface::swap_buffers()
 {
-    eglSwapBuffers(this->_context->egl_context(), this->_egl_surface);
+    EGLBoolean result;
+    result = eglSwapBuffers(this->_context->egl_context(), this->_egl_surface);
+    if (result == EGL_FALSE) {
+        fprintf(stderr, "Failed to swap buffers!\n");
+        return;
+    }
+    fprintf(stderr, "Buffers swapped.\n");
 }
 
 void Surface::draw_frame(GLuint program_object)
@@ -240,7 +251,8 @@ void Surface::draw_frame(GLuint program_object)
         glEnableVertexAttribArray(1);
 
 //        glGenerateMipmap(GL_TEXTURE_2D);
-        fprintf(stderr, "Bind texture. Texture: %d\n", object->texture());
+        fprintf(stderr, "Bind texture. Object: %p, Texture: %d\n",
+            object, object->texture());
         glBindTexture(GL_TEXTURE_2D, object->texture());
 
         glBindVertexArray(vao);

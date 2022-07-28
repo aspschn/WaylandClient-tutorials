@@ -25,6 +25,7 @@ Object::Object(Surface *surface, int32_t x, int32_t y,
     this->_image_height = 0;
     this->_texture = 0;
 
+    fprintf(stderr, "Add child: this: %p\n", this);
     this->_surface->add_child(this);
 }
 
@@ -61,7 +62,8 @@ void Object::init_texture()
     );
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    fprintf(stderr, "Object::init_texture() - texture: %d\n", this->_texture);
+    fprintf(stderr, "Object::init_texture() - Object: %p, texture: %d\n",
+        this, this->_texture);
 }
 
 int32_t Object::x() const

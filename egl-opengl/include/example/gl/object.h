@@ -42,8 +42,6 @@ public:
     void set_x(int32_t x);
     void set_y(int32_t y);
 
-    GLuint vao() const;
-    GLuint ebo() const;
     GLuint texture() const;
 
     std::vector<glm::vec3> vertices() const;
