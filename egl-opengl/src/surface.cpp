@@ -103,6 +103,11 @@ Surface::Surface(Surface::Type type, uint32_t width, uint32_t height)
 
     // Wayland.
     this->_wl_surface = wl_compositor_create_surface(app->wl_compositor());
+
+    if (this->_scale > 1) {
+        wl_surface_set_buffer_scale(this->_wl_surface, this->_scale);
+    }
+
     if (this->_type == Surface::Type::Toplevel) {
         fprintf(stderr, "Surface is Toplevel.\n");
         this->_xdg_surface = xdg_wm_base_get_xdg_surface(app->xdg_wm_base(),
@@ -195,7 +200,7 @@ struct xdg_toplevel* Surface::xdg_toplevel()
 void Surface::swap_buffers()
 {
     EGLBoolean result;
-    result = eglSwapBuffers(this->_context->egl_context(), this->_egl_surface);
+    result = eglSwapBuffers(this->_context->egl_display(), this->_egl_surface);
     if (result == EGL_FALSE) {
         fprintf(stderr, "Failed to swap buffers!\n");
         return;
