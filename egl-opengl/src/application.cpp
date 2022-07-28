@@ -181,9 +181,20 @@ static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
     (void)keyboard;
     (void)serial;
     (void)time;
-    (void)key;
-    (void)state;
     fprintf(stderr, "Key! %d\n", key);
+
+    auto surface = app->keyboard_focus_surface();
+    if (surface == nullptr) {
+        fprintf(stderr, "[WARN] No surface with keyboard focus!\n");
+        return;
+    }
+    if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+        surface->keyboard_state.pressed = true;
+        surface->keyboard_state.key = key;
+    } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
+        surface->keyboard_state.pressed = false;
+        surface->keyboard_state.key = key;
+    }
 }
 
 static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
@@ -481,6 +492,11 @@ void Application::remove_surface(Surface *surface)
 std::vector<Surface*> Application::surface_list() const
 {
     return this->_surface_list;
+}
+
+Surface* Application::keyboard_focus_surface() const
+{
+    return this->_keyboard_focus_surface;
 }
 
 void Application::set_keyboard_focus_surface(Surface *surface)

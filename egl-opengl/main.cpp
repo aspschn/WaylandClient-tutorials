@@ -54,8 +54,6 @@ GLuint indices[] = {
 //std::shared_ptr<Surface> surface = nullptr;
 Surface *surface = nullptr;
 
-KeyboardState keyboard_state;
-
 std::vector<glm::ivec3> vectors;
 
 //std::shared_ptr<gl::Object> cursor_object = nullptr;
@@ -385,98 +383,6 @@ static const wl_pointer_listener pointer_listener = {
     .axis_discrete = pointer_axis_discrete_handler,
 };
 
-//=============
-// Keyboard
-//=============
-
-static void keyboard_keymap_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t format, int fd, uint32_t size)
-{
-    (void)data;
-    (void)keyboard;
-    (void)format;
-    (void)fd;
-    (void)size;
-}
-
-static void keyboard_enter_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t serial, struct wl_surface *surface, struct wl_array *keys)
-{
-    (void)data;
-    (void)keyboard;
-    (void)serial;
-    (void)surface;
-    (void)keys;
-}
-
-static void keyboard_leave_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t serial, struct wl_surface *surface)
-{
-    (void)data;
-    (void)keyboard;
-    (void)serial;
-    (void)surface;
-}
-
-static void keyboard_key_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t serial, uint32_t time, uint32_t key, uint32_t state)
-{
-    (void)data;
-    (void)keyboard;
-    (void)serial;
-    (void)time;
-    (void)key;
-    (void)state;
-    fprintf(stderr, "Key! %d\n", key);
-
-    if (state == WL_KEYBOARD_KEY_STATE_PRESSED) {
-        keyboard_state.pressed = true;
-        keyboard_state.key = key;
-    } else if (state == WL_KEYBOARD_KEY_STATE_RELEASED) {
-        keyboard_state.pressed = false;
-        keyboard_state.key = key;
-    }
-}
-
-static void keyboard_modifiers_handler(void *data, struct wl_keyboard *keyboard,
-        uint32_t serial,
-        uint32_t mods_depressed,
-        uint32_t mods_latched,
-        uint32_t mods_locked,
-        uint32_t group)
-{
-    (void)data;
-    (void)keyboard;
-    (void)serial;
-    (void)mods_depressed;
-    (void)mods_latched;
-    (void)mods_locked;
-    (void)group;
-}
-
-static void keyboard_repeat_info_handler(void *data,
-        struct wl_keyboard *keyboard,
-        int rate, int delay)
-{
-    (void)data;
-    (void)keyboard;
-    fprintf(stderr, "keyboard_repeat_info_handler()\n");
-    fprintf(stderr, " - rate: %d\n", rate);
-    fprintf(stderr, " - delay: %d\n", delay);
-
-    keyboard_state.rate = rate;
-    keyboard_state.delay = delay;
-}
-
-static const struct wl_keyboard_listener keyboard_listener = {
-    .keymap = keyboard_keymap_handler,
-    .enter = keyboard_enter_handler,
-    .leave = keyboard_leave_handler,
-    .key = keyboard_key_handler,
-    .modifiers = keyboard_modifiers_handler,
-    .repeat_info = keyboard_repeat_info_handler,
-};
-
 //===========
 // XDG
 //===========
@@ -607,6 +513,10 @@ static void move_objects()
     for (uint64_t i = 0; i < surface->children().size(); ++i) {
         auto object = surface->children()[i];
 
+        if (object == cursor_object) {
+            continue;
+        }
+
         object->set_x(object->x() + vectors[i].x);
         object->set_y(object->y() + vectors[i].y);
         // Bottom bound.
@@ -638,6 +548,12 @@ static void process_keyboard()
     gettimeofday(&tv, NULL);
     uint64_t ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 
+    auto surface = app->keyboard_focus_surface();
+    if (surface == nullptr) {
+        return;
+    }
+    auto& keyboard_state = surface->keyboard_state;
+
     if (keyboard_state.pressed == true) {
         if (!keyboard_state.processed) {
             keyboard_state.pressed_time = ms;
@@ -650,9 +566,9 @@ static void process_keyboard()
         }
         if (keyboard_state.should_processed(KEY_ENTER)) {
             fprintf(stderr, "Enter.\n");
-            gl::Object obj(surface, 0, 0, 128, 128);
-            obj.set_image((const uint8_t*)image_data, image_width, image_height);
-            obj.init_texture();
+            gl::Object *obj = new gl::Object(surface, 0, 0, 128, 128);
+            obj->set_image((const uint8_t*)image_data, image_width, image_height);
+            obj->init_texture();
             vectors.push_back(glm::ivec3(2, 2, 0));
         } else if (keyboard_state.key == KEY_RIGHT && !keyboard_state.processed) {
             cursor_vector.x = 2;
