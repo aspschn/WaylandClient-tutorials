@@ -517,23 +517,25 @@ static void move_objects()
             continue;
         }
 
-        object->set_x(object->x() + vectors[i].x);
-        object->set_y(object->y() + vectors[i].y);
+        auto& vector = vectors[i - 1];
+
+        object->set_x(object->x() + vector.x);
+        object->set_y(object->y() + vector.y);
         // Bottom bound.
         if (object->y() + object->scaled_height() >= surface->scaled_height()) {
-            vectors[i].y = -(vectors[i].y);
+            vector.y = -(vector.y);
         }
         // Right bound.
         if (object->x() + object->scaled_width() >= surface->scaled_width()) {
-            vectors[i].x = -(vectors[i].x);
+            vector.x = -(vector.x);
         }
         // Top bound.
         if (object->y() <= 0) {
-            vectors[i].y = -(vectors[i].y);
+            vector.y = -(vector.y);
         }
         // Left bound.
         if (object->x() <= 0) {
-            vectors[i].x = -(vectors[i].x);
+            vector.x = -(vector.x);
         }
     }
 
