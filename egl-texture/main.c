@@ -21,10 +21,16 @@ struct xdg_wm_base *xdg_wm_base = NULL;
 struct xdg_surface *xdg_surface = NULL;
 struct xdg_toplevel *xdg_toplevel = NULL;
 
-EGLDisplay egl_display;
-EGLConfig egl_conf;
+typedef struct EglContext
+{
+    EGLDisplay egl_display;
+    EGLConfig egl_config;
+    EGLContext egl_context;
+} EglContext;
+
+EglContext context;
+
 EGLSurface egl_surface;
-EGLContext egl_context;
 GLuint program_object;
 
 struct wl_surface *surface2;
@@ -190,7 +196,8 @@ static void xdg_wm_base_ping_handler(void *data,
         1, 2, 3,    // second triangle
     };
 
-    eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
+    eglMakeCurrent(context.egl_display,
+        egl_surface, egl_surface, context.egl_context);
 
     // Set the viewport.
     glViewport(0, 0, 480, 360);
@@ -249,7 +256,7 @@ static void xdg_wm_base_ping_handler(void *data,
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
 
-    eglSwapBuffers(egl_display, egl_surface);
+    eglSwapBuffers(context.egl_display, egl_surface);
 
     xdg_wm_base_pong(xdg_wm_base, serial);
 }
@@ -324,6 +331,8 @@ static const struct wl_registry_listener registry_listener = {
 
 static void create_window()
 {
+    EGLBoolean result;
+
     egl_window = wl_egl_window_create(surface, 480, 360);
     if (egl_window == EGL_NO_SURFACE) {
         fprintf(stderr, "Can't create egl window.\n");
@@ -332,11 +341,14 @@ static void create_window()
         fprintf(stderr, "Created egl window.\n");
     }
 
-    egl_surface = eglCreateWindowSurface(egl_display, egl_conf, egl_window,
+    egl_surface = eglCreateWindowSurface(context.egl_display,
+        context.egl_config, egl_window,
         NULL);
-    if (eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context)) {
-        fprintf(stderr, "Made current.\n");
-    } else {
+
+    result = eglMakeCurrent(context.egl_display,
+        egl_surface, egl_surface,
+        context.egl_context);
+    if (result != EGL_TRUE) {
         fprintf(stderr, "Made current failed.\n");
     }
 
@@ -344,7 +356,7 @@ static void create_window()
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
-    if (eglSwapBuffers(egl_display, egl_surface)) {
+    if (eglSwapBuffers(context.egl_display, egl_surface)) {
         fprintf(stderr, "Swapped buffers.\n");
     } else {
         fprintf(stderr, "Swapped buffers failed.\n");
@@ -353,14 +365,21 @@ static void create_window()
 
 static void create_window2()
 {
+    EGLBoolean result;
+
     egl_window2 = wl_egl_window_create(surface2, 100, 100);
     if (egl_window2 == EGL_NO_SURFACE) {
         exit(1);
     }
 
-    egl_surface2 = eglCreateWindowSurface(egl_display, egl_conf,
+    egl_surface2 = eglCreateWindowSurface(context.egl_display,
+        context.egl_config,
         egl_window2, NULL);
-    if (eglMakeCurrent(egl_display, egl_surface2, egl_surface2, egl_context)) {
+    result = eglMakeCurrent(context.egl_display,
+        egl_surface2, egl_surface2,
+        context.egl_context);
+
+    if (result != EGL_TRUE) {
         fprintf(stderr, "Made current for egl_surface2.\n");
     }
 
@@ -368,7 +387,7 @@ static void create_window2()
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
-    if (eglSwapBuffers(egl_display, egl_surface2)) {
+    if (eglSwapBuffers(context.egl_display, egl_surface2)) {
         fprintf(stderr, "Swapped buffers for egl_surface2.\n");
     }
 }
@@ -399,39 +418,36 @@ static void init_egl()
         EGL_NONE,
     };
 
-    egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (egl_display == EGL_NO_DISPLAY) {
+    context.egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    if (context.egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
         exit(1);
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
 
-    if (eglInitialize(egl_display, &major, &minor) != EGL_TRUE) {
+    if (eglInitialize(context.egl_display, &major, &minor) != EGL_TRUE) {
         fprintf(stderr, "Can't initialise egl display.\n");
         exit(1);
     }
     printf("EGL major: %d, minor %d\n", major, minor);
 
-    eglGetConfigs(egl_display, NULL, 0, &count);
+    eglGetConfigs(context.egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
     configs = calloc(count, sizeof *configs);
 
-    eglChooseConfig(egl_display, config_attribs, configs, count, &n);
+    eglChooseConfig(context.egl_display, config_attribs, configs, count, &n);
 
     for (int i = 0; i < n; ++i) {
-        eglGetConfigAttrib(egl_display, configs[i], EGL_BUFFER_SIZE, &size);
-        printf("Buffersize for config %d is %d\n", i, size);
-        eglGetConfigAttrib(egl_display, configs[i], EGL_RED_SIZE, &size);
-        printf("Red size for config %d is %d.\n", i, size);
-
         // Just choose the first one.
-        egl_conf = configs[i];
+        context.egl_config = configs[i];
         break;
     }
 
-    egl_context = eglCreateContext(egl_display, egl_conf, EGL_NO_CONTEXT,
+    context.egl_context = eglCreateContext(context.egl_display,
+        context.egl_config,
+        EGL_NO_CONTEXT,
         context_attribs);
 }
 
@@ -513,7 +529,7 @@ int main(int argc, char *argv[])
     }
     create_window2();
 
-    wl_surface_commit(surface);
+    // wl_surface_commit(surface);
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
