@@ -392,9 +392,9 @@ static void create_window2()
     }
 }
 
-static void init_egl()
+static void init_egl(EglContext *context)
 {
-    EGLint major, minor, count, n, size;
+    EGLint major, minor, count, n;
     EGLConfig *configs;
     EGLint config_attribs[] = {
         EGL_SURFACE_TYPE,
@@ -418,35 +418,35 @@ static void init_egl()
         EGL_NONE,
     };
 
-    context.egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (context.egl_display == EGL_NO_DISPLAY) {
+    context->egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    if (context->egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
         exit(1);
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
 
-    if (eglInitialize(context.egl_display, &major, &minor) != EGL_TRUE) {
+    if (eglInitialize(context->egl_display, &major, &minor) != EGL_TRUE) {
         fprintf(stderr, "Can't initialise egl display.\n");
         exit(1);
     }
     printf("EGL major: %d, minor %d\n", major, minor);
 
-    eglGetConfigs(context.egl_display, NULL, 0, &count);
+    eglGetConfigs(context->egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
     configs = calloc(count, sizeof *configs);
 
-    eglChooseConfig(context.egl_display, config_attribs, configs, count, &n);
+    eglChooseConfig(context->egl_display, config_attribs, configs, count, &n);
 
     for (int i = 0; i < n; ++i) {
         // Just choose the first one.
-        context.egl_config = configs[i];
+        context->egl_config = configs[i];
         break;
     }
 
-    context.egl_context = eglCreateContext(context.egl_display,
-        context.egl_config,
+    context->egl_context = eglCreateContext(context->egl_display,
+        context->egl_config,
         EGL_NO_CONTEXT,
         context_attribs);
 }
@@ -522,14 +522,14 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(display);
 
     // create_opaque_region();
-    init_egl();
+    init_egl(&context);
     create_window();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
     create_window2();
 
-    // wl_surface_commit(surface);
+    wl_surface_commit(surface);
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
