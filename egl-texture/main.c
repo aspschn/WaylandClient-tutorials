@@ -28,14 +28,21 @@ typedef struct EglContext
     EGLContext egl_context;
 } EglContext;
 
+// Toplevel surface context.
 EglContext context;
 
 EGLSurface egl_surface;
 GLuint program_object;
 
+// Subsurface context.
+EglContext context2;
+
+EGLSurface egl_surface2;
+GLuint program_object2;
+
+// Subsurface objects.
 struct wl_surface *surface2;
 struct wl_egl_window *egl_window2;
-EGLSurface egl_surface2;
 struct wl_subsurface *subsurface;
 
 uint32_t image_width;
@@ -387,12 +394,12 @@ static void create_window2()
         exit(1);
     }
 
-    egl_surface2 = eglCreateWindowSurface(context.egl_display,
-        context.egl_config,
+    egl_surface2 = eglCreateWindowSurface(context2.egl_display,
+        context2.egl_config,
         egl_window2, NULL);
-    result = eglMakeCurrent(context.egl_display,
+    result = eglMakeCurrent(context2.egl_display,
         egl_surface2, egl_surface2,
-        context.egl_context);
+        context2.egl_context);
 
     if (result != EGL_TRUE) {
         fprintf(stderr, "Made current for egl_surface2.\n");
@@ -402,7 +409,7 @@ static void create_window2()
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
 
-    if (eglSwapBuffers(context.egl_display, egl_surface2)) {
+    if (eglSwapBuffers(context2.egl_display, egl_surface2)) {
         fprintf(stderr, "Swapped buffers for egl_surface2.\n");
     }
 }
@@ -536,13 +543,17 @@ int main(int argc, char *argv[])
 
     wl_display_roundtrip(display);
 
-    // create_opaque_region();
     init_egl(&context);
     create_window();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
+
+    init_egl(&context2);
     create_window2();
+    if (init(&program_object2) == 0) {
+        fprintf(stderr, "Error init!\n");
+    }
 
     wl_surface_commit(surface);
 
