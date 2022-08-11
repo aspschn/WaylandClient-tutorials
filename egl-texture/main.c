@@ -538,10 +538,12 @@ int main(int argc, char *argv[])
 
 
     // MUST COMMIT! or not working on weston.
-    wl_surface_commit(surface2);
     wl_surface_commit(surface);
-
     wl_display_roundtrip(display);
+
+    wl_surface_commit(surface2);
+    wl_display_roundtrip(display);
+
 
     init_egl(&context);
     create_window();
