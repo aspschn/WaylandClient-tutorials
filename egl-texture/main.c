@@ -521,10 +521,6 @@ int main(int argc, char *argv[])
     } else {
         fprintf(stderr, "Created surface!\n");
     }
-    surface2 = wl_compositor_create_surface(compositor);
-    subsurface = wl_subcompositor_get_subsurface(subcompositor,
-        surface2, surface);
-    wl_subsurface_set_position(subsurface, -10, -10);
 
     xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
 
@@ -546,11 +542,14 @@ int main(int argc, char *argv[])
     xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
 
+    surface2 = wl_compositor_create_surface(compositor);
+    subsurface = wl_subcompositor_get_subsurface(subcompositor,
+        surface2, surface);
+    wl_subsurface_set_position(subsurface, -10, -10);
+
+
     // MUST COMMIT! or not working on weston.
     wl_surface_commit(surface);
-    wl_display_roundtrip(display);
-
-    wl_surface_commit(surface2);
     wl_display_roundtrip(display);
 
 
