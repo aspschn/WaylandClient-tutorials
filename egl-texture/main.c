@@ -435,13 +435,15 @@ static void init_egl(EglContext *context)
         EGL_ALPHA_SIZE,
         8,
         EGL_RENDERABLE_TYPE,
-        EGL_OPENGL_ES2_BIT,
+        EGL_OPENGL_BIT,
         EGL_NONE,
     };
 
-    static const EGLint context_attribs[] = {
-        EGL_CONTEXT_CLIENT_VERSION,
-        2,
+    EGLint context_attribs[] = {
+        EGL_CONTEXT_MAJOR_VERSION,
+        4,
+        EGL_CONTEXT_MINOR_VERSION,
+        6,
         EGL_NONE,
     };
 
