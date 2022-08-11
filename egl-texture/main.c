@@ -4,7 +4,8 @@
 #include <wayland-client.h>
 #include <wayland-egl.h>
 #include <EGL/egl.h>
-#include <GLES3/gl3.h>
+//#include <GLES3/gl3.h>
+#include <GL/glew.h>
 
 #include <cairo.h>
 
@@ -115,7 +116,7 @@ GLuint load_shader(const char *shader_src, GLenum type)
 int init(GLuint *program_object)
 {
     GLbyte vertex_shader_str[] =
-        "#version 300 es                \n"
+        "#version 330 core                \n"
 //        "attribute vec4 vPosition;      \n"
         "layout (location = 0) in vec3 aPos;        \n"
         "layout (location = 1) in vec3 aColor;      \n"
@@ -130,7 +131,7 @@ int init(GLuint *program_object)
         "}                                      \n";
 
     GLbyte fragment_shader_str[] =
-        "#version 300 es                \n"
+        "#version 330 core              \n"
         "precision mediump float;       \n"
         "out vec4 fragColor;            \n"
         "in vec3 ourColor;              \n"
@@ -374,6 +375,8 @@ static void create_window()
         fprintf(stderr, "Made current failed.\n");
     }
 
+    glewInit();
+
     glClearColor(1.0, 1.0, 0.0, 0.5);
     glClear(GL_COLOR_BUFFER_BIT);
     glFlush();
@@ -404,6 +407,8 @@ static void create_window2()
     if (result != EGL_TRUE) {
         fprintf(stderr, "Made current for egl_surface2.\n");
     }
+
+    glewInit();
 
     glClearColor(0.0, 0.0, 1.0, 0.5);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -439,6 +444,8 @@ static void init_egl(EglContext *context)
         2,
         EGL_NONE,
     };
+
+    eglBindAPI(EGL_OPENGL_API);
 
     context->egl_display = eglGetDisplay((EGLNativeDisplayType)display);
     if (context->egl_display == EGL_NO_DISPLAY) {
