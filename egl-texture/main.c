@@ -377,10 +377,6 @@ static void create_window()
 
     glewInit();
 
-    glClearColor(1.0, 1.0, 0.0, 0.5);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glFlush();
-
     if (eglSwapBuffers(context.egl_display, egl_surface)) {
         fprintf(stderr, "Swapped buffers.\n");
     } else {
@@ -412,14 +408,13 @@ static void create_window2()
 
     glClearColor(0.0, 0.0, 1.0, 0.5);
     glClear(GL_COLOR_BUFFER_BIT);
-    glFlush();
 
     if (eglSwapBuffers(context2.egl_display, egl_surface2)) {
         fprintf(stderr, "Swapped buffers for egl_surface2.\n");
     }
 }
 
-static void init_egl(EglContext *context)
+static void init_egl()
 {
     EGLint major, minor, count, n;
     EGLConfig *configs;
@@ -449,60 +444,45 @@ static void init_egl(EglContext *context)
 
     eglBindAPI(EGL_OPENGL_API);
 
-    context->egl_display = eglGetDisplay((EGLNativeDisplayType)display);
-    if (context->egl_display == EGL_NO_DISPLAY) {
+    context.egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    if (context.egl_display == EGL_NO_DISPLAY) {
         fprintf(stderr, "Can't create egl display\n");
         exit(1);
     } else {
         fprintf(stderr, "Created egl display.\n");
     }
 
-    if (eglInitialize(context->egl_display, &major, &minor) != EGL_TRUE) {
+    if (eglInitialize(context.egl_display, &major, &minor) != EGL_TRUE) {
         fprintf(stderr, "Can't initialise egl display.\n");
         exit(1);
     }
     printf("EGL major: %d, minor %d\n", major, minor);
 
-    eglGetConfigs(context->egl_display, NULL, 0, &count);
+    eglGetConfigs(context.egl_display, NULL, 0, &count);
     printf("EGL has %d configs.\n", count);
 
     configs = calloc(count, sizeof *configs);
 
-    eglChooseConfig(context->egl_display, config_attribs, configs, count, &n);
+    eglChooseConfig(context.egl_display, config_attribs, configs, count, &n);
 
-    for (int i = 0; i < n; ++i) {
-        // Just choose the first one.
-        context->egl_config = configs[i];
-        break;
-    }
+    // Just choose the first one.
+    context.egl_config = configs[0];
 
-    context->egl_context = eglCreateContext(context->egl_display,
-        context->egl_config,
+    context.egl_context = eglCreateContext(context.egl_display,
+        context.egl_config,
         EGL_NO_CONTEXT,
         context_attribs);
-}
 
-static void get_server_references()
-{
-    display = wl_display_connect(NULL);
-    if (display == NULL) {
-        fprintf(stderr, "Can't connect to display.\n");
-        exit(1);
-    }
-    printf("Connected to display.\n");
+    // Context 2.
+    context2.egl_display = eglGetDisplay((EGLNativeDisplayType)display);
+    eglInitialize(context2.egl_display, NULL, NULL);
 
-    struct wl_registry *registry = wl_display_get_registry(display);
-    wl_registry_add_listener(registry, &registry_listener, NULL);
+    context2.egl_config = configs[0];
 
-    wl_display_dispatch(display);
-    wl_display_roundtrip(display);
-
-    if (compositor == NULL || xdg_wm_base == NULL) {
-        fprintf(stderr, "Can't find compositor or xdg_wm_base.\n");
-        exit(1);
-    } else {
-        fprintf(stderr, "Found compositor and xdg_wm_base.\n");
-    }
+    context2.egl_context = eglCreateContext(context2.egl_display,
+        context2.egl_config,
+        EGL_NO_CONTEXT,
+        context_attribs);
 }
 
 int main(int argc, char *argv[])
@@ -510,10 +490,21 @@ int main(int argc, char *argv[])
     (void)argc;
     (void)argv;
 
-    get_server_references();
+    display = wl_display_connect(NULL);
+
+    struct wl_registry *registry = wl_display_get_registry(display);
+    wl_registry_add_listener(registry, &registry_listener, NULL);
+
+    wl_display_dispatch(display);
+    wl_display_roundtrip(display);
+
+    // Check compositor.
+    if (compositor == NULL) {
+        fprintf(stderr, "Compositor not created!\n");
+        exit(1);
+    }
 
     // Check surface.
-    fprintf(stderr, " - Checking surface...\n");
     surface = wl_compositor_create_surface(compositor);
     if (surface == NULL) {
         fprintf(stderr, "Can't create surface.\n");
@@ -524,7 +515,7 @@ int main(int argc, char *argv[])
 
     xdg_wm_base_add_listener(xdg_wm_base, &xdg_wm_base_listener, NULL);
 
-    // Check xdg surface.
+    // Get XDG surface.
     fprintf(stderr, " - Checking xdg surface...\n");
     xdg_surface = xdg_wm_base_get_xdg_surface(xdg_wm_base, surface);
     if (xdg_surface == NULL) {
@@ -542,6 +533,7 @@ int main(int argc, char *argv[])
     xdg_toplevel_add_listener(xdg_toplevel, &xdg_toplevel_listener, NULL);
 
 
+    // Subsurface.
     surface2 = wl_compositor_create_surface(compositor);
     subsurface = wl_subcompositor_get_subsurface(subcompositor,
         surface2, surface);
@@ -553,19 +545,16 @@ int main(int argc, char *argv[])
     wl_display_roundtrip(display);
 
 
-    init_egl(&context);
+    init_egl();
     create_window();
     if (init(&program_object) == 0) {
         fprintf(stderr, "Error init!\n");
     }
 
-    init_egl(&context2);
     create_window2();
     if (init(&program_object2) == 0) {
         fprintf(stderr, "Error init!\n");
     }
-
-    wl_surface_commit(surface);
 
     int res = wl_display_dispatch(display);
     while (res != -1) {
