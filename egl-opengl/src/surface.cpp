@@ -170,6 +170,9 @@ void Surface::set_size(uint32_t width, uint32_t height)
 {
     this->_width = width;
     this->_height = height;
+
+    wl_egl_window_resize(this->_wl_egl_window,
+        this->scaled_width(), this->scaled_height(), 0, 0);
 }
 
 uint32_t Surface::scaled_width() const
