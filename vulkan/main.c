@@ -1063,6 +1063,7 @@ void draw_frame()
     present_info.pImageIndices = &image_index;
 
     // Set zero or null.
+    present_info.pResults = NULL;
     present_info.pNext = NULL;
 
     vkQueuePresentKHR(vulkan_present_queue, &present_info);
