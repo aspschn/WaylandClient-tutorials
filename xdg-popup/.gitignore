@@ -1,0 +1,10 @@
+a.out
+CMakeLists.txt.user
+*.pro.user
+xdg-shell.h
+xdg-shell.c
+*.o
+wayland-protocols/stable/*.h
+wayland-protocols/stable/*.c
+
+build/
